@@ -1,0 +1,243 @@
+---
+title: "Lesotho Climate Dashboard"
+author: "Ashna"
+date: "2023-10-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(base)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(tidyselect)
+library(ggplot2)
+library(forcats)
+library(shiny)
+library(leaflet)
+library(tidygeocoder)
+library(ggmap)
+library(mapview)
+library(sf)
+library(ggmap)
+library(geojsonio)
+library(htmltools)
+library(sp)
+library(geojsonsf)
+library(leaflet.extras)
+library(shinydashboard)
+
+#D. Kahle and H. Wickham. ggmap: Spatial Visualization with ggplot2. The R Journal, 5(1),
+#  144-161. URL http://journal.r-project.org/archive/2013-1/kahle-wickham.pdf
+```
+
+
+```{r District Names & Coordinates}
+# should probably chnage this to use api?
+df_lab <- data.frame(
+  Name = c("Quthing", "Mohale's Hoek", "Qacha's Nek", "Mafeteng", "Maseru", "Thaba-Tseka", "Mokhotlong", "Berea", "Leribe", "Butha-Buthe"),
+  Lat = c(-30.4001, -30.15, -30.1167, -29.8167, -29.31, -29.5333, -29.2885, -29.2069, -28.8734, -28.7833),
+  Long = c(27.7002, 27.4667, 28.6833, 27.25, 27.48, 28.6, 29.0656, 27.878, 28.0416, 28.2333)
+)
+# df_lab <- read.csv(textConnection(
+# "Name,Lat,Long
+# Quthing,-30.4001,27.7002
+# Mohale's Hoek,-30.15,27.4667
+# Qacha's Nek,-30.1167,28.6833
+# Mafeteng,-29.8167,27.25
+# Maseru,-29.31,27.48
+# Thaba-Tseka,-29.5333,28.6
+# Mokhotlong,-29.2885,29.0656
+# Berea,29.2069,27.878
+# Leribe,	-28.8734,28.0416
+# Butha-Buthe, -28.7833, 28.2333"))
+```
+
+
+```{r Load Population Info}
+df_pop <- read.csv("~/Desktop/Columbia/Fall 23/Practicum/lesotho_pop_short.csv")
+```
+
+
+```{r Lesotho Map Setup}
+GeoData <- readLines("~/Desktop/Columbia/Fall 23/Practicum/mygeodata/mygeodata_merged.json") %>% 
+  paste(collapse = "\n") 
+
+geojson <- geojsonsf::geojson_sf(GeoData) # Parse GeoJSON data
+
+mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name")
+```
+
+
+```{r Lesotho Map Colors}
+breaks <- quantile(mgeojson$Total, probs = c(0, 0.2, 0.4, 0.6, 0.8, 1))
+colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
+#colors <- c("gold", "orange", "orangered", "red", "darkred")
+#colors <- c("darkseagreen1", "palegreen", "seagreen3", "seagreen4", "darkgreen")
+
+# Create a factor with colors based on quantiles
+mgeojson$ColorFactor <- cut(mgeojson$Total, breaks = breaks, labels = colors[1:5], include.lowest = TRUE)
+
+legend_colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
+    legend_labels <- c("Low Population", "MediumLow Population", "Medium Population","MediumHigh Population", "High Population")
+
+```
+
+
+```{r Dashboard UI Inputs}
+#header <- dashboardHeader()
+sidebar <- dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("house")),
+      menuItem("Actions", icon = icon("th"), tabName = "actions", badgeLabel = "label", badgeColor = "teal"),
+      menuItem("Guide", icon = icon("list"), tabName = "guide")
+    )
+  )
+
+body <- dashboardBody(
+      #tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+  tabItems(
+    tabItem(tabName = "dashboard",
+      fluidRow(column(width = 9,
+        box(title = "Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # Place the map inside the box
+      ),
+      column(width = 3,
+        box(title = "Map Viewing Options", width = NULL, height = 500)
+      )),
+      fluidRow(column(width = 5,
+        box(title = "Graph1", width = NULL, height = 500)),
+        column(width = 5,
+        box(title = "Graph2", width = NULL, height = 500))
+      )
+    ),
+    tabItem(tabName = "actions",
+      h2(NULL)
+    )
+  )
+)
+#dashboardPage(header, sidebar, body)
+```
+
+
+```{r Lesotho Dashboard}
+#library(geojsonio)
+
+ui <- dashboardPage(
+  dashboardHeader(title = "Lesotho Dashboard"),
+  sidebar,
+  body
+)
+
+server <- function(input, output) {
+  output$lesotho_map <- renderLeaflet({
+    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7) %>%
+      addTiles() %>%
+      addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
+      addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name,
+      labelOptions = labelOptions(noHide = T, textsize = "9px", style = list(
+        "color" = "skyblue", "font-style" = "bold"))) %>%
+      addPolygons(data = mgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
+      opacity = 1.0, fillOpacity = 0.5,
+      fillColor = ~ColorFactor,
+      highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE)) %>% 
+      addLegend(
+      position = "bottomright",  # Adjust position as needed
+      colors = legend_colors,
+      labels = legend_labels,
+      title = "Population Legend"
+    ) 
+  })
+}
+
+shinyApp(ui, server)
+#shiny::runApp("~/Desktop/Columbia/Fall 23")
+```
+
+
+```{r ONLY MAP UI}
+ui <- fillPage(
+  tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+  leafletOutput("lesotho_map", width = "100%", height = "100%") %>% # Define a leaflet map output
+   dashboardHeader(title = "Lesotho Dashboard"),
+   dashboardSidebar(),
+   dashboardBody() %>%
+  
+  dashboardSidebar(
+  sidebarMenu(
+    menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+    menuItem("Widgets", icon = icon("th"), tabName = "widgets",
+             badgeLabel = "new", badgeColor = "green")
+  )
+),
+    
+    mainPanel(
+        leafletOutput("lesotho_map"),
+        width = 10
+    ))
+```
+
+
+```{r ONLY DASHBOARD UI}
+ui <- dashboardPage(
+  dashboardHeader(title = "Lesotho Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("Widgets", tabName = "widgets", icon = icon("th"), badgeLabel = "null", badgeColor = "green")
+    )
+  ),
+  dashboardBody(
+    tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+    tabItems(
+      tabItem(
+        tabName = "dashboard",
+        leafletOutput("lesotho_map", width = "100%", height = "100%")
+      )
+    )
+  )
+)
+```
+
+
+```{r Minimal Code for Testing}
+#minimal code
+library(shiny)
+library(shinydashboard)
+library(leaflet)
+
+ui <- dashboardPage(
+  dashboardHeader(title = "Lesotho Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard"))
+    )
+  ),
+  dashboardBody(
+    tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+    tabItems(
+      tabItem(
+        tabName = "dashboard",
+        leafletOutput("lesotho_map", width = "100%", height = "100%")
+      )
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$lesotho_map <- renderLeaflet({
+    leaflet() %>%
+      setView(lng = 28.2336, lat = -29.6091, zoom = 7) %>%
+      addTiles()
+  })
+}
+
+shinyApp(ui, server)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
