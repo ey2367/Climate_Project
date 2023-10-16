@@ -38,8 +38,8 @@ library(shinydashboard)
 # should probably chnage this to use api?
 df_lab <- data.frame(
   Name = c("Quthing", "Mohale's Hoek", "Qacha's Nek", "Mafeteng", "Maseru", "Thaba-Tseka", "Mokhotlong", "Berea", "Leribe", "Butha-Buthe"),
-  Lat = c(-30.4001, -30.15, -30.1167, -29.8167, -29.31, -29.5333, -29.2885, -29.2069, -28.8734, -28.7833),
-  Long = c(27.7002, 27.4667, 28.6833, 27.25, 27.48, 28.6, 29.0656, 27.878, 28.0416, 28.2333)
+  Lat = c(-30.413616, -30.127431, -29.964429, -29.757574, -29.565642, -29.5333, -29.2885, -29.2069, -29.018983, -28.823041),
+  Long = c(27.970415, 27.668363, 28.701420, 27.378837, 27.796710, 28.6, 29.0656, 27.878, 28.283234, 28.611562)
 )
 # df_lab <- read.csv(textConnection(
 # "Name,Lat,Long
@@ -57,7 +57,7 @@ df_lab <- data.frame(
 
 
 ```{r Load Population Info}
-df_pop <- read.csv("~/Desktop/Columbia/Fall 23/Practicum/lesotho_pop_short.csv")
+df_pop <- read.csv("~/Desktop/Columbia/Fall 23/Practicum/lesotho_pop_short1.csv")
 ```
 
 
