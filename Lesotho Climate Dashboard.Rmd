@@ -101,7 +101,7 @@ body <- dashboardBody(
   tabItems(
     tabItem(tabName = "dashboard",
       fluidRow(column(width = 9,
-        box(title = "Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # Place the map inside the box
+        box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # Place the map inside the box
       ),
       column(width = 3,
         box(title = "Map Viewing Options", width = NULL, height = 500)
@@ -113,7 +113,17 @@ body <- dashboardBody(
       )
     ),
     tabItem(tabName = "actions",
-      h2(NULL)
+      fluidRow(column(width = 9,
+        box(title = "Gantt Chart", width = NULL, height = 500),
+      ))
+    ),
+    tabItem(tabName = "guide",
+      fluidRow(column(width = 10,
+        box(title = "Supporting Materials", width = NULL, height = 500),
+      fluidRow(column(width = 10,
+        box(title = "FAQ", width = NULL, height = 500))
+      )
+      ))
     )
   )
 )
@@ -121,7 +131,7 @@ body <- dashboardBody(
 ```
 
 
-```{r Lesotho Dashboard}
+```{r Lesotho Map}
 #library(geojsonio)
 
 ui <- dashboardPage(
@@ -137,7 +147,7 @@ server <- function(input, output) {
       addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
       addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name,
       labelOptions = labelOptions(noHide = T, textsize = "9px", style = list(
-        "color" = "skyblue", "font-style" = "bold"))) %>%
+        "color" = "black", "font-style" = "bold"))) %>%
       addPolygons(data = mgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.5,
       fillColor = ~ColorFactor,
@@ -147,7 +157,7 @@ server <- function(input, output) {
       position = "bottomright",  # Adjust position as needed
       colors = legend_colors,
       labels = legend_labels,
-      title = "Population Legend"
+      title = "Population Legend (Test)"
     ) 
   })
 }
