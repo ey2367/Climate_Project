@@ -56,10 +56,17 @@ df_lab <- data.frame(
 ```
 
 
-```{r Load Population Info}
+```{r Load Info}
+#Population Info
 df_pop <- read.csv("~/Desktop/Columbia/Fall 23/Practicum/lesotho_pop_short1.csv")
-```
 
+#Climate Info
+df_ond <- read.csv("~/Desktop/Columbia/Fall 23/Practicum/LesothoONDData.csv")
+df_ond <- df_ond %>%
+  mutate(triggered = case_when(
+    RainFcstV2 >= FrcstThreshold ~ "yes",
+    RainFcstV2 < FrcstThreshold ~ "no"))
+```
 
 ```{r Lesotho Map Setup}
 GeoData <- readLines("~/Desktop/Columbia/Fall 23/Practicum/mygeodata/mygeodata_merged.json") %>% 
@@ -68,6 +75,8 @@ GeoData <- readLines("~/Desktop/Columbia/Fall 23/Practicum/mygeodata/mygeodata_m
 geojson <- geojsonsf::geojson_sf(GeoData) # Parse GeoJSON data
 
 mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name")
+
+ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name")
 ```
 
 
@@ -85,13 +94,20 @@ legend_colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray
 
 ```
 
+```{r Lesotho OND Data Colors}
+fcst_breaks <- c(40, 45, 50, 55, 60, 65)
+fcst_colors <- c("darkred", "red", "orangered", "orange", "gold")
+ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, breaks = fcst_breaks, labels = fcst_colors[1:5], include.lowest = TRUE)
+
+```
+
 
 ```{r Dashboard UI Inputs}
 #header <- dashboardHeader()
 sidebar <- dashboardSidebar(
     sidebarMenu(
       menuItem("Dashboard", tabName = "dashboard", icon = icon("house")),
-      menuItem("Actions", icon = icon("th"), tabName = "actions", badgeLabel = "label", badgeColor = "teal"),
+      menuItem("Data", icon = icon("th"), tabName = "data", badgeLabel = "label", badgeColor = "teal"),
       menuItem("Guide", icon = icon("list"), tabName = "guide")
     )
   )
@@ -104,17 +120,22 @@ body <- dashboardBody(
         box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # Place the map inside the box
       ),
       column(width = 3,
-        box(title = "Map Viewing Options", width = NULL, height = 500)
+       box(title = "Map Viewing Options", width = NULL, height = 500,
+        selectInput("Trigger_Level", 
+              label = "Select Severity Level", 
+              choices = c("Mild", "Moderate", "Severe")
+  )
+)
       )),
-      fluidRow(column(width = 5,
-        box(title = "Graph1", width = NULL, height = 500)),
-        column(width = 5,
-        box(title = "Graph2", width = NULL, height = 500))
+      fluidRow(column(width = 12,
+        box(title = "Gantt Chart", width = NULL, height = 500)),
+        #column(width = 5,
+        #box(title = "Graph2", width = NULL, height = 500))
       )
     ),
-    tabItem(tabName = "actions",
+    tabItem(tabName = "data",
       fluidRow(column(width = 9,
-        box(title = "Gantt Chart", width = NULL, height = 500),
+        box(title = "Graph 1", width = NULL, height = 500),
       ))
     ),
     tabItem(tabName = "guide",
@@ -141,18 +162,34 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output) {
+selected_severity <- reactive({
+    severity_level <- input$Trigger_Level
+    if (severity_level == "Mild") {
+      return(ondgeojson[ondgeojson$Trigger_Level == "mild", ])
+    } else if (severity_level == "Moderate") {
+      return(ondgeojson[ondgeojson$Trigger_Level == "moderate", ])
+    } else if (severity_level == "Severe") {
+      return(ondgeojson[ondgeojson$Trigger_Level == "severe", ])
+    } else {
+      return(ondgeojson)
+    }
+  })
+  
   output$lesotho_map <- renderLeaflet({
-    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7) %>%
+    #filtered_data <- selected_severity()
+    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>%
       addTiles() %>%
       addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
       addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name,
       labelOptions = labelOptions(noHide = T, textsize = "9px", style = list(
         "color" = "black", "font-style" = "bold"))) %>%
-      addPolygons(data = mgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
+      
+      addPolygons(data = ondgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.5,
-      fillColor = ~ColorFactor,
+      fillColor = ~ColorFcst,
       highlightOptions = highlightOptions(color = "white", weight = 2,
       bringToFront = TRUE)) %>% 
+      
       addLegend(
       position = "bottomright",  # Adjust position as needed
       colors = legend_colors,
@@ -209,6 +246,30 @@ ui <- dashboardPage(
     )
   )
 )
+```
+
+```{r Population Fill}
+server <- function(input, output) {
+  output$lesotho_map <- renderLeaflet({
+    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7) %>%
+      addTiles() %>%
+      addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
+      addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name,
+      labelOptions = labelOptions(noHide = T, textsize = "9px", style = list(
+        "color" = "black", "font-style" = "bold"))) %>%
+      addPolygons(data = mgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
+      opacity = 1.0, fillOpacity = 0.5,
+      fillColor = ~ColorFactor,
+      highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE)) %>% 
+      addLegend(
+      position = "bottomright",  # Adjust position as needed
+      colors = legend_colors,
+      labels = legend_labels,
+      title = "Population Legend (Test)"
+    ) 
+  })
+}
 ```
 
 
