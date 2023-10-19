@@ -65,38 +65,45 @@ df_ond <- read.csv("~/Desktop/Columbia/Fall 23/Practicum/LesothoONDData.csv")
 df_ond <- df_ond %>%
   mutate(triggered = case_when(
     RainFcstV2 >= FrcstThreshold ~ "yes",
-    RainFcstV2 < FrcstThreshold ~ "no"))
+    RainFcstV2 < FrcstThreshold ~ "no")) # add column to indicate whether drought was triggered
 ```
 
 ```{r Lesotho Map Setup}
+# original shape file with district boundaries
 GeoData <- readLines("~/Desktop/Columbia/Fall 23/Practicum/mygeodata/mygeodata_merged.json") %>% 
   paste(collapse = "\n") 
 
 geojson <- geojsonsf::geojson_sf(GeoData) # Parse GeoJSON data
 
-mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name")
+mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
 
-ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name")
+ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
+#final datafram contains population info, forecast info, and shape files info
 ```
 
 
 ```{r Lesotho Map Colors}
+# break up population numbers into 5 sections and assign 5 colors
 breaks <- quantile(mgeojson$Total, probs = c(0, 0.2, 0.4, 0.6, 0.8, 1))
 colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
 #colors <- c("gold", "orange", "orangered", "red", "darkred")
 #colors <- c("darkseagreen1", "palegreen", "seagreen3", "seagreen4", "darkgreen")
 
-# Create a factor with colors based on quantiles
+# Create a factor with colors based on quantiles (will add new column and assign color)
 mgeojson$ColorFactor <- cut(mgeojson$Total, breaks = breaks, labels = colors[1:5], include.lowest = TRUE)
 
+# create a legend and labels
 legend_colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
     legend_labels <- c("Low Population", "MediumLow Population", "Medium Population","MediumHigh Population", "High Population")
 
 ```
 
 ```{r Lesotho OND Data Colors}
+# break up forecast numbers into 5 sections and assign 5 colors
 fcst_breaks <- c(40, 45, 50, 55, 60, 65)
 fcst_colors <- c("darkred", "red", "orangered", "orange", "gold")
+
+# Create a factor with colors based on divisions (will add new column and assign color)
 ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, breaks = fcst_breaks, labels = fcst_colors[1:5], include.lowest = TRUE)
 
 ```
@@ -104,6 +111,9 @@ ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, breaks = fcst_breaks, labels 
 
 ```{r Dashboard UI Inputs}
 #header <- dashboardHeader()
+
+# add sections to the sidebar
+# can change name, icon, and add a label
 sidebar <- dashboardSidebar(
     sidebarMenu(
       menuItem("Dashboard", tabName = "dashboard", icon = icon("house")),
@@ -112,16 +122,17 @@ sidebar <- dashboardSidebar(
     )
   )
 
+# build dashboard body and assign outputs to a section on the sidebar
 body <- dashboardBody(
       #tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
   tabItems(
-    tabItem(tabName = "dashboard",
-      fluidRow(column(width = 9,
-        box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # Place the map inside the box
+    tabItem(tabName = "dashboard", #assign section
+      fluidRow(column(width = 9, #output width
+        box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # place the map inside the box
       ),
       column(width = 3,
        box(title = "Map Viewing Options", width = NULL, height = 500,
-        selectInput("Trigger_Level", 
+        selectInput("Trigger_Level", # create a dropdown menu for user to select input
               label = "Select Severity Level", 
               choices = c("Mild", "Moderate", "Severe")
   )
@@ -155,14 +166,16 @@ body <- dashboardBody(
 ```{r Lesotho Map}
 #library(geojsonio)
 
+# add header, sidebar, and body inputs to ui
 ui <- dashboardPage(
   dashboardHeader(title = "Lesotho Dashboard"),
   sidebar,
   body
 )
 
+#build server
 server <- function(input, output) {
-selected_severity <- reactive({
+selected_severity <- reactive({ #still figuring out severity conditional statement
     severity_level <- input$Trigger_Level
     if (severity_level == "Mild") {
       return(ondgeojson[ondgeojson$Trigger_Level == "mild", ])
@@ -174,24 +187,27 @@ selected_severity <- reactive({
       return(ondgeojson)
     }
   })
-  
-  output$lesotho_map <- renderLeaflet({
+
+# Build Lesotho map
+  output$lesotho_map <- renderLeaflet({ 
     #filtered_data <- selected_severity()
-    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>%
-      addTiles() %>%
+    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>% # set center coordinates and zoom for initial view
+      addTiles() %>% # insert shape files to add district boundaries
       addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
-      addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name,
+      addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name, # add district labels
       labelOptions = labelOptions(noHide = T, textsize = "9px", style = list(
         "color" = "black", "font-style" = "bold"))) %>%
       
+      # add hover feature --> district boundaries highlighted when cursor hovers
       addPolygons(data = ondgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.5,
       fillColor = ~ColorFcst,
       highlightOptions = highlightOptions(color = "white", weight = 2,
       bringToFront = TRUE)) %>% 
       
+      # add legend
       addLegend(
-      position = "bottomright",  # Adjust position as needed
+      position = "bottomright",  # adjust position
       colors = legend_colors,
       labels = legend_labels,
       title = "Population Legend (Test)"
