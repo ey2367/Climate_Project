@@ -135,21 +135,28 @@ body <- dashboardBody(
       ),
       column(width = 3,
        box(title = "Map Viewing Options", width = NULL, height = 500,
-        uiOutput("lesotho_forecast"),
-        selectInput("Trigger_Level", # create a dropdown menu for user to select input
-              label = "Severity Level", 
-              choices = c("Mild" = 1,
-                          "Moderate" = 2, 
-                          "Severe" = 3),
-              selected = 1 # the default option to "Mild"
+        uiOutput("lesotho_level"),
+        selectInput("Select_Level", # create a dropdown menu for user to select input
+              label = "Mode", 
+              choices = c("National" = 1,
+                          "District" = 2),
+              selected = 1 # the default option to "June"
   ),
-  uiOutput("lesotho_month"),
-        selectInput("Month", # create a dropdown menu for user to select input
+        uiOutput("lesotho_month"),
+        selectInput("Select_Month", # create a dropdown menu for user to select input
               label = "Month", 
               choices = c("June" = 1,
                           "July" = 2, 
                           "August" = 3),
               selected = 1 # the default option to "June"
+  ),
+  uiOutput("lesotho_forecast"),
+        selectInput("Trigger_Level", # create a dropdown menu for user to select input
+              label = "Select Severity", 
+              choices = c("Mild" = 1,
+                          "Moderate" = 2, 
+                          "Severe" = 3),
+              selected = 1 # the default option to "Mild"
 )
       )),
       fluidRow(column(width = 12,
