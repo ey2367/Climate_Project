@@ -92,10 +92,12 @@ colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
 # Create a factor with colors based on quantiles (will add new column and assign color)
 mgeojson$ColorFactor <- cut(mgeojson$Total, breaks = breaks, labels = colors[1:5], include.lowest = TRUE)
 
-# create a legend and labels
+# create a legend and labels 
+# Population
 legend_colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
     legend_labels <- c("Low Population", "MediumLow Population", "Medium Population","MediumHigh Population", "High Population")
 
+#Forecast
 ```
 
 ```{r Lesotho OND Data Colors}
@@ -128,18 +130,26 @@ body <- dashboardBody(
   tabItems(
     tabItem(tabName = "dashboard", #assign section
       fluidRow(column(width = 9, #output width
-        box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500)), # place the map inside the box
+        box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500), # place the map inside the box
+            actionButton("reset_map_button", "Reset Map")),
       ),
       column(width = 3,
        box(title = "Map Viewing Options", width = NULL, height = 500,
         uiOutput("lesotho_forecast"),
         selectInput("Trigger_Level", # create a dropdown menu for user to select input
-              label = "Select Severity Level", 
+              label = "Severity Level", 
               choices = c("Mild" = 1,
                           "Moderate" = 2, 
                           "Severe" = 3),
-              selected = c(1, 2, 3)
-  )
+              selected = 1 # the default option to "Mild"
+  ),
+  uiOutput("lesotho_month"),
+        selectInput("Month", # create a dropdown menu for user to select input
+              label = "Month", 
+              choices = c("June" = 1,
+                          "July" = 2, 
+                          "August" = 3),
+              selected = 1 # the default option to "June"
 )
       )),
       fluidRow(column(width = 12,
@@ -162,20 +172,9 @@ body <- dashboardBody(
       ))
     )
   )
-)
+))
 #dashboardPage(header, sidebar, body)
 ```
-
-```{r}
-calculateColorFcst <- function(ondgeojson) {
-  ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
-                       breaks = c(0, 20, 40, 60, 80, 100), 
-                       labels = c("darkred", "red", "orangered", "orange", "gold"),
-                       include.lowest = TRUE)
-  return(ondgeojson)
-}
-```
-
 
 ```{r Lesotho Map}
 #library(geojsonio)
@@ -188,28 +187,26 @@ ui <- dashboardPage(
 )
 
 #build server
-server <- function(input, output) {
+server <- function(input, output, session) {
 
 # Build reactive user input for forecast viewing  
  selected_severity <- reactive({
     severity_level <- input$Trigger_Level
     if (severity_level == 1) {
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "mild", ]
-      print("1")
-      calculateColorFcst
     } else if (severity_level == 2) {
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "moderate", ]
-       print("2")
-       calculateColorFcst
     } else if (severity_level == 3) {
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "severe", ]
-       print("3")
-       calculateColorFcst
     } else {
       ondgeojson <- ondgeojson
     }
-  
     
+    ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
+                       breaks = c(25, 30, 35, 40, 45, 50, 55, 60, 65), 
+                       labels = c("darkred", "firebrick", "red", "orangered", "darkorange", "orange", "gold", "khaki"),
+                       include.lowest = TRUE)
+
     return(ondgeojson)
   })
 
@@ -226,19 +223,26 @@ server <- function(input, output) {
       
       # add hover feature --> district boundaries highlighted when cursor hovers
       addPolygons(data = selected_severity(), color = "#444444", weight = 1, smoothFactor = 0.5,
-      opacity = 1.0, fillOpacity = 0.5,
+      opacity = 1.0, fillOpacity = 0.77,
       fillColor = ~ColorFcst,
       highlightOptions = highlightOptions(color = "white", weight = 2,
-      bringToFront = TRUE)) %>% 
+      bringToFront = TRUE)) #%>% 
       
       # add legend
-      addLegend(
-      position = "bottomright",  # adjust position
-      colors = legend_colors,
-      labels = legend_labels,
-      title = "Population Legend (Test)"
-    ) 
+      #addLegend(
+      #position = "bottomright",  # adjust position
+      #colors = legend_colors,
+      #labels = legend_labels,
+      #title = "Population Legend (Test)"
+    #) 
   })
+  
+  # function to reset map back to original view
+  observeEvent(input$reset_map_button, {
+    leafletProxy("lesotho_map") %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5)
+    updateSelectInput(session, "Trigger_Level", selected = 1)
+  })
+  
 }
 
 
