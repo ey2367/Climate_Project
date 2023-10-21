@@ -132,9 +132,13 @@ body <- dashboardBody(
       ),
       column(width = 3,
        box(title = "Map Viewing Options", width = NULL, height = 500,
+        uiOutput("lesotho_forecast"),
         selectInput("Trigger_Level", # create a dropdown menu for user to select input
               label = "Select Severity Level", 
-              choices = c("Mild", "Moderate", "Severe")
+              choices = c("Mild" = 1,
+                          "Moderate" = 2, 
+                          "Severe" = 3),
+              selected = c(1, 2, 3)
   )
 )
       )),
@@ -162,6 +166,16 @@ body <- dashboardBody(
 #dashboardPage(header, sidebar, body)
 ```
 
+```{r}
+calculateColorFcst <- function(ondgeojson) {
+  ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
+                       breaks = c(0, 20, 40, 60, 80, 100), 
+                       labels = c("darkred", "red", "orangered", "orange", "gold"),
+                       include.lowest = TRUE)
+  return(ondgeojson)
+}
+```
+
 
 ```{r Lesotho Map}
 #library(geojsonio)
@@ -175,22 +189,34 @@ ui <- dashboardPage(
 
 #build server
 server <- function(input, output) {
-selected_severity <- reactive({ #still figuring out severity conditional statement
+
+# Build reactive user input for forecast viewing  
+ selected_severity <- reactive({
     severity_level <- input$Trigger_Level
-    if (severity_level == "Mild") {
-      return(ondgeojson[ondgeojson$Trigger_Level == "mild", ])
-    } else if (severity_level == "Moderate") {
-      return(ondgeojson[ondgeojson$Trigger_Level == "moderate", ])
-    } else if (severity_level == "Severe") {
-      return(ondgeojson[ondgeojson$Trigger_Level == "severe", ])
+    if (severity_level == 1) {
+      ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "mild", ]
+      print("1")
+      calculateColorFcst
+    } else if (severity_level == 2) {
+      ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "moderate", ]
+       print("2")
+       calculateColorFcst
+    } else if (severity_level == 3) {
+      ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "severe", ]
+       print("3")
+       calculateColorFcst
     } else {
-      return(ondgeojson)
+      ondgeojson <- ondgeojson
     }
+  
+    
+    return(ondgeojson)
   })
 
+ 
 # Build Lesotho map
   output$lesotho_map <- renderLeaflet({ 
-    #filtered_data <- selected_severity()
+  #filtered_data <- selected_severity()
     leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>% # set center coordinates and zoom for initial view
       addTiles() %>% # insert shape files to add district boundaries
       addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
@@ -199,7 +225,7 @@ selected_severity <- reactive({ #still figuring out severity conditional stateme
         "color" = "black", "font-style" = "bold"))) %>%
       
       # add hover feature --> district boundaries highlighted when cursor hovers
-      addPolygons(data = ondgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
+      addPolygons(data = selected_severity(), color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.5,
       fillColor = ~ColorFcst,
       highlightOptions = highlightOptions(color = "white", weight = 2,
@@ -215,8 +241,21 @@ selected_severity <- reactive({ #still figuring out severity conditional stateme
   })
 }
 
+
 shinyApp(ui, server)
 #shiny::runApp("~/Desktop/Columbia/Fall 23")
+```
+
+```{r Ignore For Now}
+    if (severity_level == 1) {
+      return(ondgeojson[ondgeojson$Trigger_Level == "mild", ])
+    } else if (severity_level == 2) {
+      return(ondgeojson[ondgeojson$Trigger_Level == "moderate", ])
+    } else if (severity_level == 3) {
+      return(ondgeojson[ondgeojson$Trigger_Level == "severe", ])
+    } else {
+      return(ondgeojson)
+    }
 ```
 
 
