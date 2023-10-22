@@ -135,9 +135,9 @@ body <- dashboardBody(
         uiOutput("lesotho_level"),
         selectInput("Select_Level", # create a dropdown menu for user to select input
               label = "Mode", 
-              choices = c("National" = 1,
+              choices = c("National" = 1, # still need to set national view by removing district lines & labels
                           "District" = 2),
-              selected = 1 # the default option to "June"
+              selected = 2 # the default option to "District"
   ),
         uiOutput("lesotho_month"),
         selectInput("Select_Month", # create a dropdown menu for user to select input
@@ -149,7 +149,7 @@ body <- dashboardBody(
   ),
   uiOutput("lesotho_forecast"),
         selectInput("Trigger_Level", # create a dropdown menu for user to select input
-              label = "Select Severity", 
+              label = "Severity", 
               choices = c("Mild" = 1,
                           "Moderate" = 2, 
                           "Severe" = 3),
@@ -180,7 +180,7 @@ body <- dashboardBody(
 #dashboardPage(header, sidebar, body)
 ```
 
-```{r Lesotho Map}
+```{r Dashboard UI + Server}
 #library(geojsonio)
 
 # add header, sidebar, and body inputs to ui
@@ -219,7 +219,7 @@ server <- function(input, output, session) {
     
     ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
                        breaks = c(25, 30, 35, 40, 45, 50, 55, 60, 65, 70), 
-                       labels = c("darkred", "firebrick", "red", "orangered", "darkorange", "orange", "gold", "khaki", "cornsilk"),
+                       labels = c("darkred", "firebrick", "red", "orangered", "darkorange", "orange", "gold", "khaki", "lemonchiffon"),
                        include.lowest = TRUE)
 
     return(ondgeojson)
@@ -239,7 +239,7 @@ server <- function(input, output, session) {
       # add hover feature --> district boundaries highlighted when cursor hovers
       addPolygons(data = selected_severity(), color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.77,
-      fillColor = ~ColorFcst,
+      fillColor = ~ColorFcst, # Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing most at-risk
       highlightOptions = highlightOptions(color = "white", weight = 2,
       bringToFront = TRUE)) #%>% 
       
