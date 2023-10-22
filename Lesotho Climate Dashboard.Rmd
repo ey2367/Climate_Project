@@ -33,7 +33,6 @@ library(shinydashboard)
 #  144-161. URL http://journal.r-project.org/archive/2013-1/kahle-wickham.pdf
 ```
 
-
 ```{r District Names & Coordinates}
 # should probably chnage this to use api?
 df_lab <- data.frame(
@@ -54,7 +53,6 @@ df_lab <- data.frame(
 # Leribe,	-28.8734,28.0416
 # Butha-Buthe, -28.7833, 28.2333"))
 ```
-
 
 ```{r Load Info}
 #Population Info
@@ -80,7 +78,6 @@ mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name") # mer
 ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
 #final datafram contains population info, forecast info, and shape files info
 ```
-
 
 ```{r Lesotho Map Colors}
 # break up population numbers into 5 sections and assign 5 colors
@@ -130,7 +127,7 @@ body <- dashboardBody(
   tabItems(
     tabItem(tabName = "dashboard", #assign section
       fluidRow(column(width = 9, #output width
-        box(title = "Lesotho Map", width = NULL, leafletOutput("lesotho_map", height = 500), # place the map inside the box
+        box(title = "Lesotho Drought Forecast", width = NULL, leafletOutput("lesotho_map", height = 500), # place the map inside the box
             actionButton("reset_map_button", "Reset Map")),
       ),
       column(width = 3,
@@ -148,7 +145,7 @@ body <- dashboardBody(
               choices = c("June" = 1,
                           "July" = 2, 
                           "August" = 3),
-              selected = 1 # the default option to "June"
+              selected = 1 # set the default option to "June"
   ),
   uiOutput("lesotho_forecast"),
         selectInput("Trigger_Level", # create a dropdown menu for user to select input
@@ -156,7 +153,7 @@ body <- dashboardBody(
               choices = c("Mild" = 1,
                           "Moderate" = 2, 
                           "Severe" = 3),
-              selected = 1 # the default option to "Mild"
+              selected = 1 # set the default option to "Mild"
 )
       )),
       fluidRow(column(width = 12,
@@ -199,6 +196,7 @@ server <- function(input, output, session) {
 # Build reactive user input for forecast viewing  
  selected_severity <- reactive({
     severity_level <- input$Trigger_Level
+    month_select <- input$Select_Month
     if (severity_level == 1) {
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "mild", ]
     } else if (severity_level == 2) {
@@ -209,9 +207,19 @@ server <- function(input, output, session) {
       ondgeojson <- ondgeojson
     }
     
+     if (month_select == 1) {
+      ondgeojson <- ondgeojson[ondgeojson$Month == "June", ]
+    } else if (month_select == 2) {
+      ondgeojson <- ondgeojson[ondgeojson$Month == "July", ]
+    } else if (month_select == 3) {
+      ondgeojson <- ondgeojson[ondgeojson$Month == "August", ]
+    } else {
+      ondgeojson <- ondgeojson
+    }
+    
     ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
-                       breaks = c(25, 30, 35, 40, 45, 50, 55, 60, 65), 
-                       labels = c("darkred", "firebrick", "red", "orangered", "darkorange", "orange", "gold", "khaki"),
+                       breaks = c(25, 30, 35, 40, 45, 50, 55, 60, 65, 70), 
+                       labels = c("darkred", "firebrick", "red", "orangered", "darkorange", "orange", "gold", "khaki", "cornsilk"),
                        include.lowest = TRUE)
 
     return(ondgeojson)
@@ -247,7 +255,7 @@ server <- function(input, output, session) {
   # function to reset map back to original view
   observeEvent(input$reset_map_button, {
     leafletProxy("lesotho_map") %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5)
-    updateSelectInput(session, "Trigger_Level", selected = 1)
+    #updateSelectInput(session, "Trigger_Level", selected = 1)
   })
   
 }
