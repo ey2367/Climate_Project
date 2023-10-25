@@ -19,7 +19,7 @@ ui <- fluidPage(
   )
 )
 
-server <- function(input, output) {
+server <- function(input, output,session) {
   data <- reactive({
     req(input$data_file)
     read_csv(input$data_file$datapath)
