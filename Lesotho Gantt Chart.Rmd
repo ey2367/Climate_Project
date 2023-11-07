@@ -1,0 +1,95 @@
+---
+title: "Lesotho Gantt Chart"
+author: "Ashna"
+date: "2023-11-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(DT)
+library(shiny)
+library(plan)
+library(lubridate)
+```
+
+
+```{r}
+# Create Dataframe
+# df <- data.frame(task=c("Season", "Impact 1", "Impact 2", "Impact 3", "Impact 4", "Readiness Trigger (OND)", "Readiness Trigger (DJF)", "Activation Trigger (OND)", "Activation Trigger (DJF)"), 
+#                  start=c("2023-10-01", "2023-11-01", "2023-12-01", "2023-12-01", "2023-10-24", "2023-10-25", "2023-10-26", "2023-10-27", "2023-10-28"),
+#                  end=c("2023-12-31", "2023-12-31", "2023-12-31", "2023-12-31", "2023-10-27", "2023-10-27", "2023-10-28", "2023-10-28", "2023-10-31"), 
+#                  owner=c("LMS", "WASCO", "WASCO", "LMS", "WASCO", "LMS", "LMS", "WASCO", "LMS"),
+#                  category=c())
+
+df <- as.data.frame(rbind(
+    c("Seasonal Impact", "Season", '2023-10-01', '2023-12-31', 'LMS'),
+    c("Seasonal Impact", "Impact 1", '2023-11-01', '2023-12-31', 'LMS'),
+    c("Seasonal Impact", "Impact 2", '2023-12-01', '2023-12-31', 'WASCO'),
+    c("Seasonal Impact", "Impact 3", '2023-12-01', '2023-12-31', 'WASCO'),
+    c("Seasonal Impact", "Impact 4", '2023-10-01', '2023-12-31', 'WASCO'),
+    c("Forecast Triggers", "Readiness Trigger (OND)", '2023-07-01', '2023-09-31', 'LMS'),
+    c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'WASCO'),
+    c("Forecast Triggers", "Activation Trigger (OND)", '2023-08-01', '2023-09-31', 'WASCO'),
+    c("Forecast Triggers", "Activation Trigger (DJF)", '2023-10-01', '2023-11-31', 'LMS'),
+    c("Anticipatory Actions", "Intervention 1", '2023-08-01', '2024-05-31', 'DMA'),
+    c("Anticipatory Actions", "Intervention 2", '2023-08-01', '2024-05-31', 'RWS'),
+    c("Anticipatory Actions", "Intervention 3", '2023-08-01', '2024-05-31', 'MAFSN'),
+    c("Anticipatory Actions", "Intervention 4", '2023-08-01', '2024-05-31', 'WFP'),
+    c("M&E", "Outcome", '2024-05-01', '2024-05-31', 'WFP'),
+    c("M&E", "After Action Review", '2024-06-01', '2024-06-31', 'WFP'),
+    c("M&E", "Final Report", '2024-07-01', '2024-08-31', 'WFP')
+    )) %>%
+  select("category" = 1, "task" = 2, "start" = 3, "end" = 4, "owner" = 5) %>%
+  mutate(category = (factor(category, levels = unique(category))),
+         task = fct_rev(factor(task, levels = unique(task))),
+         start = as.Date(start), 
+         end = as.Date(end)) %>%
+  mutate(lab_pos = start) %>%
+  pivot_longer(3:4, names_to = "variable", values_to = "value")
+
+df$date <- as.Date(df$value)
+
+# bar colors
+bar_colors <- c("LMS" = "pink", "WASCO" = "aquamarine", "DMA" = "green", "RWS" = "orange", "MAFSN" = "red", "WFP" = "skyblue")
+
+```
+
+```{r}
+# Execute Gantt Chart
+#ggplot(data=df, aes(x=StartDate, y=TaskName)) +  geom_line(aes(x=EndDate)) +  labs(title="Customized X-axis", x="Months", y="Tasks")+  scale_x_date(date_breaks = "1 month", date_labels = "%b %Y")
+
+
+ggplot() +
+  geom_line(data=df, mapping=aes(x=fct_rev(fct_inorder(task)), y=date, color=owner), size=10) +
+  geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
+  coord_flip() +
+  scale_y_date(date_breaks = "1 month") +
+  scale_color_manual(values = bar_colors) +
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  scale_x_discrete(labels = scales::date_format("%b")) +
+  labs(title="Lesotho Anticipatory Action Timeline",
+       x = "Task",
+       y = "Month",
+       colour = "Owner") +
+  facet_grid(category ~ ., space = "free_y", scales = "free_y", switch = "both") + # Split tasks into categories
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, size = 9, family = "Helvetica"), #family = "Your_Font_Family"
+    axis.text.y = element_text(size = 9, family = "Helvetica", color="black"),
+        panel.grid.minor = element_line(color="white", size=0.5),
+        legend.position="right",
+        plot.title = element_text(hjust = 0.5, family = "Helvetica", size = 16)
+    )
+```
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
