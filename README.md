@@ -14,4 +14,8 @@ The purpose of this project is to create an RShiny dashbaord to help the governm
 - The Food Insecurity Graph provides an overview of the food security situation in Lesotho, helping to assess and address issues related to food security. 
     [need to download the 'FoodSecurity Data.csv' file]
     
-  
+**Dashboard**
+1. All files not included in “Gantt Chart” & “Graphs” files are map sources;
+2. Trigger dashboard map;
+3. Break up population numbers into 5 sections and assign 5 colors;
+4. Show trigger according to severity and months.
