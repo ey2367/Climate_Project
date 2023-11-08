@@ -9,7 +9,7 @@ The purpose of this project is to create an RShiny dashbaord to help the governm
 - The Line Graph displays both rain forecast and historical data for Lesotho, offering insights into precipitation trends.
 3. Population in Lesotho by District ('<Graphs/Population by district (Bar).R>')
 - This graph illustrates the population distribution across districts in Lesotho.
-    [need to download the 'FoodSecurity Data.csv' file]
+    [need to download the 'lesotho_pop_short1.csv' file]
 4. Food Insecurity Graph ('<Graphs/Food Insecuirty of Lesotho.R>')
 - The Food Insecurity Graph provides an overview of the food security situation in Lesotho, helping to assess and address issues related to food security. 
     [need to download the 'FoodSecurity Data.csv' file]
