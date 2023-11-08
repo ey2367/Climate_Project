@@ -1,11 +1,11 @@
-# NEED TO DOWNLOAD 2 EXCEL FILES: all.xlsx and left.xlsx
+# NEED TO DOWNLOAD 2 EXCEL FILES: all1.xlsx and left.xlsx
 #install.packages(c("readxl", "ggplot2", "tidyverse"))
 library(readxl)
 library(ggplot2)
 library(tidyverse)
 
 # Reading the Excel file
-data <- read_excel("all.xlsx") 
+data <- read_excel("all1.xlsx") 
 
 # Reshaping the data from wide to long format
 data_long <- data %>% pivot_longer(cols = -ID, names_to = "Month", values_to = "Value")
@@ -48,7 +48,7 @@ data_left <- read_excel("left.xlsx")
 # Create a new dataframe matching the shape of data_long
 data_left_long <- data.frame(
   ID = data_left$ID,
-  Month = rep("right", length(data_left$ID)),
+  Month = rep("", length(data_left$ID)),
   Value = factor(rep(0, length(data_left$ID))) # Assuming a value of 0 for these cells
 )
 
