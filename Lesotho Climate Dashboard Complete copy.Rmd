@@ -1,0 +1,622 @@
+---
+title: "Lesotho Climate Dashboard"
+author: "Ashna"
+date: "2023-10-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(base)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(tidyselect)
+library(ggplot2)
+library(forcats)
+library(shiny)
+library(leaflet)
+library(tidygeocoder)
+library(ggmap)
+library(mapview)
+library(sf)
+library(ggmap)
+library(geojsonio)
+library(htmltools)
+library(sp)
+library(geojsonsf)
+library(leaflet.extras)
+library(shinydashboard)
+library(rsconnect)
+library(here)
+library(plotly)
+library(readr)
+
+#D. Kahle and H. Wickham. ggmap: Spatial Visualization with ggplot2. The R Journal, 5(1),
+#  144-161. URL http://journal.r-project.org/archive/2013-1/kahle-wickham.pdf
+```
+
+```{r District Names & Coordinates}
+# should probably chnage this to use api?
+df_lab <- data.frame(
+  Name = c("Quthing", "Mohale's Hoek", "Qacha's Nek", "Mafeteng", "Maseru", "Thaba-Tseka", "Mokhotlong", "Berea", "Leribe", "Butha-Buthe"),
+  Lat = c(-30.413616, -30.127431, -29.964429, -29.757574, -29.565642, -29.5333, -29.2885, -29.2069, -29.018983, -28.823041),
+  Long = c(27.970415, 27.668363, 28.701420, 27.378837, 27.796710, 28.6, 29.0656, 27.878, 28.283234, 28.611562)
+)
+```
+
+```{r Load Info}
+#Population Info
+#print("here .. loading data ... ")
+df_pop <- read.csv(here("lesotho_pop_short1.csv"))
+
+#Climate Info
+df_ond <- read.csv(here("LesothoONDData.csv"))
+df_ond <- df_ond %>%
+  mutate(triggered = case_when(
+    RainFcstV2 >= FrcstThreshold ~ "yes",
+    RainFcstV2 < FrcstThreshold ~ "no")) # add column to indicate whether drought was triggered
+
+# District Chart Information
+df_target_areas <- read.csv('target_areas.csv')
+
+```
+
+```{r Lesotho Map Setup}
+# original shape file with district boundaries
+#library(here)
+GeoData <- readLines(here("mygeodata_merged.json")) %>% 
+  paste(collapse = "\n") 
+
+geojson <- geojsonsf::geojson_sf(GeoData) # Parse GeoJSON data
+
+mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
+
+ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
+#final datafram contains population info, forecast info, and shape files info
+
+# dataframe with 4 most at-r-sk districts: Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing
+four_ondgeojson <- ondgeojson %>%
+  filter(adm1_name %in% c("Mafeteng", "Mohale's Hoek", "Thaba Tseka", "Quthing"))
+```
+
+```{r Lesotho Map Colors}
+# break up population numbers into 5 sections and assign 5 colors
+breaks <- quantile(mgeojson$Total, probs = c(0, 0.2, 0.4, 0.6, 0.8, 1))
+colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
+#colors <- c("gold", "orange", "orangered", "red", "darkred")
+#colors <- c("darkseagreen1", "palegreen", "seagreen3", "seagreen4", "darkgreen")
+
+# Create a factor with colors based on quantiles (will add new column and assign color)
+mgeojson$ColorFactor <- cut(mgeojson$Total, breaks = breaks, labels = colors[1:5], include.lowest = TRUE)
+
+# create a legend and labels 
+# Population
+legend_colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
+    legend_labels <- c("Low Population", "MediumLow Population", "Medium Population","MediumHigh Population", "High Population")
+
+#Forecast
+```
+
+```{r Lesotho OND Data Colors}
+# break up forecast numbers into 5 sections and assign 5 colors
+fcst_breaks <- c(40, 45, 50, 55, 60, 65)
+fcst_colors <- c("darkred", "red", "orangered", "orange", "gold")
+
+# Create a factor with colors based on divisions (will add new column and assign color)
+ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, breaks = fcst_breaks, labels = fcst_colors[1:5], include.lowest = TRUE)
+
+```
+
+```{r Charts}
+# GANTT CHART
+library(plotly)
+library(dplyr)
+tasks <- c("Season", "Impact 1", "Impact 2", "Impact 3")
+start_dates <- as.Date(c("2023-10-01", "2023-11-01", "2023-12-01", "2024-01-01"))
+durations <- c(10, 5, 7, 8)
+impact_type <- c("Drought", "Food Security", "Drought", "Food Security")
+
+gantt_data <- data.frame(tasks, start_dates, durations, impact_type)     
+fig <- plot_ly(gantt_data, x = ~start_dates, xend = ~start_dates + durations, y = ~tasks, type = 'bar', orientation = 'h', text = ~impact_type) %>%
+  layout(
+    title = "Gantt Chart of ONDJ",
+    xaxis = list(title = "Timeline"),
+    yaxis = list(title = "Tasks"),
+    barmode = "stack"  # This stacks bars for different impacts
+  )
+fig
+
+# POPULATION CHART
+# Load the necessary library
+library(ggplot2)
+
+# Read the CSV data
+data <- read.csv("lesotho_pop_short1.csv")
+
+# Create a bar chart to visualize the total population by district
+ggplot(data, aes(x = adm1_name, y = Total, fill = adm1_name)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Population by District in Lesotho",
+    x = "District",
+    y = "Total Population"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_discrete(name = "District")
+
+# FOOD INSECURITY CHART
+data <- read.csv("FoodSecurity Data.csv")
+# Convert the "ReportedDate" column to a Date format
+data$reporting_date <- as.Date(data$reporting_date)
+
+# Map numerical values to severity labels
+data$value <- factor(data$value, levels = c(1, 2, 3), labels = c("Minimal", "Stressed", "Crisis"))
+
+# Create a line plot to show the severity over time
+ggplot(data, aes(x = reporting_date, y = value)) +
+  geom_line(aes(color = value)) +
+  scale_y_discrete(limits = c("Minimal", "Stressed", "Crisis")) +
+  labs(
+    title = "Food Security of Lesotho Over Time",
+    x = "Reporting Date",
+    y = "Severity"
+  ) +
+  theme_minimal()
+```
+
+```{r Gantt Chart Setup}
+df <- as.data.frame(rbind(
+    c("Seasonal Impact", "Season", '2023-10-01', '2023-12-31', 'LMS'),
+    c("Seasonal Impact", "Impact 1", '2023-11-01', '2023-12-31', 'LMS'),
+    c("Seasonal Impact", "Impact 2", '2023-12-01', '2023-12-31', 'WASCO'),
+    c("Seasonal Impact", "Impact 3", '2023-12-01', '2023-12-31', 'WASCO'),
+    c("Seasonal Impact", "Impact 4", '2023-10-01', '2023-12-31', 'WASCO'),
+    c("Forecast Triggers", "Readiness Trigger (OND)", '2023-07-01', '2023-09-31', 'LMS'),
+    c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'WASCO'),
+    c("Forecast Triggers", "Activation Trigger (OND)", '2023-08-01', '2023-09-31', 'WASCO'),
+    c("Forecast Triggers", "Activation Trigger (DJF)", '2023-10-01', '2023-11-31', 'LMS'),
+    c("Anticipatory Actions", "Intervention 1", '2023-08-01', '2024-05-31', 'DMA'),
+    c("Anticipatory Actions", "Intervention 2", '2023-08-01', '2024-05-31', 'RWS'),
+    c("Anticipatory Actions", "Intervention 3", '2023-08-01', '2024-05-31', 'MAFSN'),
+    c("Anticipatory Actions", "Intervention 4", '2023-08-01', '2024-05-31', 'WFP'),
+    c("M&E", "Outcome", '2024-05-01', '2024-05-31', 'WFP'),
+    c("M&E", "After Action Review", '2024-06-01', '2024-06-31', 'WFP'),
+    c("M&E", "Final Report", '2024-07-01', '2024-08-31', 'WFP')
+    )) %>%
+  select("category" = 1, "task" = 2, "start" = 3, "end" = 4, "owner" = 5) %>%
+  mutate(category = (factor(category, levels = unique(category))),
+         task = fct_rev(factor(task, levels = unique(task))),
+         start = as.Date(start), 
+         end = as.Date(end)) %>%
+  mutate(lab_pos = start) %>%
+  pivot_longer(3:4, names_to = "variable", values_to = "value")
+
+df$date <- as.Date(df$value)
+
+# bar colors
+bar_colors <- c("LMS" = "pink", "WASCO" = "aquamarine", "DMA" = "green", "RWS" = "orange", "MAFSN" = "red", "WFP" = "skyblue")
+```
+
+
+```{r Dashboard UI Inputs}
+#header <- dashboardHeader()
+
+# add sections to the sidebar
+# can change name, icon, and add a label
+sidebar <- dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("house")),
+      menuItem("Data", icon = icon("th"), tabName = "data", badgeLabel = "label", badgeColor = "teal"),
+      menuItem("Geographic Information", icon = icon("globe"), tabName = "table"),
+      menuItem("Guide", icon = icon("list"), tabName = "guide")
+    )
+  )
+
+# build dashboard body and assign outputs to a section on the sidebar
+body <- dashboardBody(
+      #tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+  tabItems(
+    tabItem(tabName = "dashboard", #assign section
+      fluidRow(column(width = 9, #output width
+        box(title = "Lesotho Drought Forecast", width = NULL, leafletOutput("lesotho_map", height = 500), # place the map inside the box
+            actionButton("reset_map_button", "Reset Map")),
+      ),
+      column(width = 3,
+       box(title = "Map Viewing Options", width = NULL, height = 500,
+        uiOutput("lesotho_level"),
+        selectInput("Select_Level", # create a dropdown menu for user to select input
+              label = "Mode", 
+              choices = c("National" = 1, # still need to set national view by removing district lines & labels
+                          "District" = 2),
+              selected = 2 # the default option to "District"
+  ),
+        uiOutput("lesotho_month"),
+        selectInput("Select_Month", # create a dropdown menu for user to select input
+              label = "Month", 
+              choices = c("June" = 1,
+                          "July" = 2, 
+                          "August" = 3),
+              selected = 1 # set the default option to "June"
+  ),
+  uiOutput("lesotho_forecast"),
+        selectInput("Trigger_Level", # create a dropdown menu for user to select input
+              label = "Severity", 
+              choices = c("Mild" = 1,
+                          "Moderate" = 2, 
+                          "Severe" = 3),
+              selected = 1 # set the default option to "Mild"
+),
+
+  p(class = "text-muted",
+          HTML(paste("Mild: 35%", "<br>",
+             "Moderate: 25%", "<br>",
+             "Severe: 15%"))
+          ),
+
+  checkboxInput("Trigger_Input", HTML('<b>Show Triggered</b>'), value = FALSE, width = NULL),
+  p(class = "text-muted",
+         HTML(paste('<span style="color: red;">Drought Hazard Triggered</span>', "<br>",
+             '<span style="color: green;">No Drought Hazard Triggered</span>'))
+          )
+      ),
+
+),
+      fluidRow(column(width = 12,
+        box(title = "Temporary Gantt Chart", width = NULL, height = 700, plotlyOutput("fig"))),
+        #column(width = 5,
+        #box(title = "Graph2", width = NULL, height = 500))
+      )
+    )),
+    tabItem(tabName = "data",
+      fluidRow(column(width = 9,
+        box(title = "Graph 1", width = NULL, height = 500),
+      ))
+    ),
+  tabItem(tabName = "table",
+      fluidRow(column(width = 10,
+        box(title = "At-Risk Districts", width = NULL, tabPanel("Table", dataTableOutput("district_table"), height = 500))
+        ))
+    ),
+    tabItem(tabName = "guide",
+      fluidRow(column(width = 10,
+        box(title = "Supporting Materials", width = NULL, height = 500),
+      fluidRow(column(width = 10,
+        box(title = "FAQ", width = NULL, height = 500))
+      )
+      ))
+    )
+))
+#dashboardPage(header, sidebar, body)
+```
+
+```{r Dashboard UI + Server}
+#library(geojsonio)
+
+# add header, sidebar, and body inputs to ui
+ui <- dashboardPage(
+  dashboardHeader(title = "Lesotho Dashboard"),
+  sidebar,
+  body
+)
+
+
+
+#build server
+server <- function(input, output, session) {
+
+# Build reactive user input for forecast viewing  
+ selected_severity <- reactive({
+    severity_level <- input$Trigger_Level
+    month_select <- input$Select_Month
+    if (severity_level == 1) {
+      ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "mild", ]
+    } else if (severity_level == 2) {
+      ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "moderate", ]
+    } else if (severity_level == 3) {
+      ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "severe", ]
+    } else {
+      ondgeojson <- ondgeojson
+    }
+    
+     if (month_select == 1) {
+      ondgeojson <- ondgeojson[ondgeojson$Month == "June", ]
+    } else if (month_select == 2) {
+      ondgeojson <- ondgeojson[ondgeojson$Month == "July", ]
+    } else if (month_select == 3) {
+      ondgeojson <- ondgeojson[ondgeojson$Month == "August", ]
+    } else {
+      ondgeojson <- ondgeojson
+    }
+    
+    ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
+                       breaks = c(25, 30, 35, 40, 45, 50, 55, 60, 65, 70), 
+                       labels = c("darkred", "firebrick", "red", "orangered", "darkorange", "orange", "gold", "khaki", "lemonchiffon"),
+                       include.lowest = TRUE)
+
+    return(ondgeojson)
+  })
+ 
+# Reactive viewing based on "Show Triggered" selection
+trigger_show <- reactive({
+    select_trigger <- input$Trigger_Input
+    four_ondgeojson$ColorTrig <- ifelse(select_trigger, ifelse(four_ondgeojson$triggered == "yes", "red", "green"), "transparent")
+  
+  return(four_ondgeojson)
+})
+
+# Build Lesotho map
+  output$lesotho_map <- renderLeaflet({ 
+  #filtered_data <- selected_severity()
+    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>% # set center coordinates and zoom for initial view
+      addTiles() %>% # insert shape files to add district boundaries
+      addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
+      addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name, # add district labels
+      labelOptions = labelOptions(noHide = T, textsize = "9px", direction = "center", style = list(
+        "color" = "black", "font-weight" = "bold", "background" = "transparent", "border" = "none", "box-shadow" = "none"))) %>%
+      
+      # add hover feature --> district boundaries highlighted when cursor hovers
+      addPolygons(data = selected_severity(), color = "#444444", weight = 1, smoothFactor = 0.5,
+      opacity = 1.0, fillOpacity = 0.77,
+      fillColor = ~ColorFcst, # Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing most at-risk
+      highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE)) %>% 
+      
+      # add fill based on "Show Triggered" Input
+      addPolygons(data = trigger_show(), color = "#444444", weight = 1, smoothFactor = 0.5,
+      opacity = 1.0, fillOpacity = 0.77,
+      fillColor = ~ColorTrig, # Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing most at-risk
+      highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE))
+      
+      # add legend
+      #addLegend(
+      #position = "bottomright",  # adjust position
+      #colors = legend_colors,
+      #labels = legend_labels,
+      #title = "Population Legend (Test)"
+    #) 
+  })
+  
+  # function to reset map back to original view
+  observeEvent(input$reset_map_button, {
+    leafletProxy("lesotho_map") %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5)
+    #updateSelectInput(session, "Trigger_Level", selected = 1)
+  })
+  
+# Insert Gantt Chart code
+
+output$fig <- renderPlotly({
+    # Your ggplot code goes here
+    p <- ggplot() +
+      geom_line(data=df, mapping=aes(x=fct_rev(fct_inorder(task)), y=date, color=owner), size=10) +
+      geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
+      coord_flip() +
+      scale_y_date(date_breaks = "1 month") +
+      scale_color_manual(values = bar_colors) +
+      scale_x_discrete(labels = scales::date_format("%b")) +
+      labs(title="Lesotho Anticipatory Action Timeline",
+           x = "",
+           y = "Month",
+           colour = "Owner") +
+      facet_grid(category ~ ., space = "free_y", scales = "free_y", switch = "both") +
+      theme_bw() +
+      theme(
+        axis.text.x = element_text(angle = 90, size = 9, family = "Helvetica"),
+        axis.text.y = element_text(size = 9, family = "Helvetica", color = "black"),
+        panel.grid.minor = element_line(color = "white", size = 0.5),
+        legend.position = "right",
+        plot.title = element_text(hjust = 0.5, family = "Helvetica", size = 16)
+      )
+  })
+
+  output$district_table <- renderDataTable({
+        df_target_areas
+    })
+  
+}
+
+
+shinyApp(ui, server)
+#shiny::runApp("~/Desktop/Columbia/Fall 23")
+```
+
+```{r Deploy App}
+rsconnect::deployApp(appDir ="~/Desktop/Columbia/Fall 23/Practicum/Dashboard")
+#~/Desktop/Columbia/Fall 23/Practicum/Lesotho Climate Dashboard Complete.Rmd
+```
+
+
+
+```{r Ignore For Now}
+    if (severity_level == 1) {
+      return(ondgeojson[ondgeojson$Trigger_Level == "mild", ])
+    } else if (severity_level == 2) {
+      return(ondgeojson[ondgeojson$Trigger_Level == "moderate", ])
+    } else if (severity_level == 3) {
+      return(ondgeojson[ondgeojson$Trigger_Level == "severe", ])
+    } else {
+      return(ondgeojson)
+    }
+```
+
+
+```{r ONLY MAP UI}
+ui <- fillPage(
+  tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+  leafletOutput("lesotho_map", width = "100%", height = "100%") %>% # Define a leaflet map output
+   dashboardHeader(title = "Lesotho Dashboard"),
+   dashboardSidebar(),
+   dashboardBody() %>%
+  
+  dashboardSidebar(
+  sidebarMenu(
+    menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+    menuItem("Widgets", icon = icon("th"), tabName = "widgets",
+             badgeLabel = "new", badgeColor = "green")
+  )
+),
+    
+    mainPanel(
+        leafletOutput("lesotho_map"),
+        width = 10
+    ))
+```
+
+
+```{r ONLY DASHBOARD UI}
+ui <- dashboardPage(
+  dashboardHeader(title = "Lesotho Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("Widgets", tabName = "widgets", icon = icon("th"), badgeLabel = "null", badgeColor = "green")
+    )
+  ),
+  dashboardBody(
+    tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+    tabItems(
+      tabItem(
+        tabName = "dashboard",
+        leafletOutput("lesotho_map", width = "100%", height = "100%")
+      )
+    )
+  )
+)
+```
+
+```{r Population Fill}
+server <- function(input, output) {
+  output$lesotho_map <- renderLeaflet({
+    leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7) %>%
+      addTiles() %>%
+      addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
+      addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name,
+      labelOptions = labelOptions(noHide = T, textsize = "9px", style = list(
+        "color" = "black", "font-style" = "bold"))) %>%
+      addPolygons(data = mgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
+      opacity = 1.0, fillOpacity = 0.5,
+      fillColor = ~ColorFactor,
+      highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE)) %>% 
+      addLegend(
+      position = "bottomright",  # Adjust position as needed
+      colors = legend_colors,
+      labels = legend_labels,
+      title = "Population Legend (Test)"
+    ) 
+  })
+}
+```
+
+
+```{r Minimal Code for Testing}
+#minimal code
+library(shiny)
+library(shinydashboard)
+library(leaflet)
+
+ui <- dashboardPage(
+  dashboardHeader(title = "Lesotho Dashboard"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard"))
+    )
+  ),
+  dashboardBody(
+    tags$style(type = "text/css", "html, body {width:100%; height:100%}"),
+    tabItems(
+      tabItem(
+        tabName = "dashboard",
+        leafletOutput("lesotho_map", width = "100%", height = "100%")
+      )
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$lesotho_map <- renderLeaflet({
+    leaflet() %>%
+      setView(lng = 28.2336, lat = -29.6091, zoom = 7) %>%
+      addTiles()
+  })
+}
+
+shinyApp(ui, server)
+```
+
+```{r}
+#install.packages("zoo")
+#install.packages(c("tidyr", "lubridate"))
+library(zoo)
+library(tidyr)
+library(lubridate)
+library(shiny)
+library(readr)
+library(plotly)
+library(tidyr)     # 新添加的tidyr库
+library(lubridate) # 新添加的lubridate库
+
+ui <- fluidPage(
+  titlePanel("Past Data Visualization"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("data_file", "Rain Fall Data - Sheet.csv:"),  # Input for uploading CSV file
+      selectInput("x_var", "Select X-axis variable:", choices = NULL),  # Input for X-axis variable selection
+      selectInput("y_var", "Select Y-axis variable:", choices = NULL)  # Input for Y-axis variable selection
+    ),
+    mainPanel(
+      plotlyOutput("line_plot")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  data <- reactive({
+    req(input$data_file)
+    df <- read_csv(input$data_file$datapath)
+    
+    # 如果选择的x变量是月份数据，则进行处理
+    if('month' %in% colnames(df)) {
+      df$month <- as.Date(as.yearmon(df$month, format = "%Y-%m"))
+      # 补全数据中的所有月份
+      df <- df %>%
+        complete(month = seq.Date(min(month), max(month), by="month"))
+    }
+    df
+  })
+  
+  observe({
+    var_choices <- colnames(data())
+    updateSelectInput(session, "x_var", choices = var_choices)
+    updateSelectInput(session, "y_var", choices = var_choices)
+  })
+  
+  output$line_plot <- renderPlotly({
+    if (is.null(input$x_var) || is.null(input$y_var)) return()
+    
+    # 计算刻度值
+    date_range <- range(data()[[input$x_var]])
+    tickvals <- seq(date_range[1], date_range[2], by="6 months")
+    
+    p <- plot_ly(data(), x = ~.data[[input$x_var]], y = ~.data[[input$y_var]], type = "scatter", mode = "lines+markers") %>%
+      layout(
+        title = paste("Line Graph of", input$y_var, "over", input$x_var),
+        xaxis = list(title = input$x_var, tickvals = tickvals, tickformat = "%Y-%m"),  # 调整X轴格式为每6个月一个刻度
+        yaxis = list(title = input$y_var),
+        hovermode = "closest"
+      )
+    p
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
