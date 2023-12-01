@@ -42,35 +42,39 @@ library(tableHTML)
 #  144-161. URL http://journal.r-project.org/archive/2013-1/kahle-wickham.pdf
 ```
 
-```{r District Names & Coordinates}
-# should probably chnage this to use api?
-df_lab <- data.frame(
-  Name = c("Quthing", "Mohale's Hoek", "Qacha's Nek", "Mafeteng", "Maseru", "Thaba-Tseka", "Mokhotlong", "Berea", "Leribe", "Butha-Buthe"),
-  Lat = c(-30.413616, -30.127431, -29.964429, -29.757574, -29.565642, -29.5333, -29.2885, -29.2069, -29.018983, -28.823041),
-  Long = c(27.970415, 27.668363, 28.701420, 27.378837, 27.796710, 28.6, 29.0656, 27.878, 28.283234, 28.611562)
-)
-```
+```{r Load Necessary Dataframes}
 
-```{r Load Info}
-#Population Info
-#print("here .. loading data ... ")
+# Load Population Information (districts, populations, coordinates)
 df_pop <- read.csv(here("lesotho_pop_short1.csv"))
 
-#Climate Info
+# Load Forecasted Rainfall Information
 df_ond <- read.csv(here("LesothoONDData.csv"))
-df_ond <- df_ond %>%
+
+# add column to indicate whether drought was triggered
+df_ond <- df_ond %>% 
   mutate(triggered = case_when(
     RainFcstV2 >= FrcstThreshold ~ "yes",
-    RainFcstV2 < FrcstThreshold ~ "no")) # add column to indicate whether drought was triggered
+    RainFcstV2 < FrcstThreshold ~ "no")) 
 
-# District Chart Information
+# Load in dataframe containing the 4 at-risk districts, their councils, and geographic zones
 df_target_areas <- read.csv('target_areas.csv')
+
+# Load in Organization Information
+df_organizations <- read.csv("org_name.csv")
 
 ```
 
 ```{r Lesotho Map Setup}
-# original shape file with district boundaries
-#library(here)
+
+# Create labels for each district name for the main map
+df_lab <- data.frame(
+  Name = c("Quthing", "Mohale's Hoek", "Qacha's Nek", "Mafeteng", "Maseru", "Thaba-Tseka", "Mokhotlong", "Berea", "Leribe", "Butha-Buthe"),
+# coordinates where labels will be
+  Lat = c(-30.413616, -30.127431, -29.964429, -29.757574, -29.565642, -29.5333, -29.2885, -29.2069, -29.018983, -28.823041),
+  Long = c(27.970415, 27.668363, 28.701420, 27.378837, 27.796710, 28.6, 29.0656, 27.878, 28.283234, 28.611562)
+)
+
+# Load in shaoefiles for district boundaries
 GeoData <- readLines(here("mygeodata_merged.json")) %>% 
   paste(collapse = "\n") 
 
@@ -81,104 +85,61 @@ mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name") # mer
 ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
 #final datafram contains population info, forecast info, and shape files info
 
-# dataframe with 4 most at-r-sk districts: Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing
+# filtered dataframe with 4 most at-r-sk districts: Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing
 four_ondgeojson <- ondgeojson %>%
   filter(adm1_name %in% c("Mafeteng", "Mohale's Hoek", "Thaba Tseka", "Quthing"))
 ```
 
-```{r Lesotho Map Colors}
-# break up population numbers into 5 sections and assign 5 colors
-breaks <- quantile(mgeojson$Total, probs = c(0, 0.2, 0.4, 0.6, 0.8, 1))
-colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
-#colors <- c("gold", "orange", "orangered", "red", "darkred")
-#colors <- c("darkseagreen1", "palegreen", "seagreen3", "seagreen4", "darkgreen")
-
-# Create a factor with colors based on quantiles (will add new column and assign color)
-mgeojson$ColorFactor <- cut(mgeojson$Total, breaks = breaks, labels = colors[1:5], include.lowest = TRUE)
-
-# create a legend and labels 
-# Population
-legend_colors <- c("lightblue", "aquamarine", "cyan", "darkcyan", "darkslategray")
-    legend_labels <- c("Low Population", "MediumLow Population", "Medium Population","MediumHigh Population", "High Population")
-
-#Forecast
-```
-
-```{r Lesotho OND Data Colors}
-# break up forecast numbers into 5 sections and assign 5 colors
-fcst_breaks <- c(40, 45, 50, 55, 60, 65)
-fcst_colors <- c("darkred", "red", "orangered", "orange", "gold")
-
-# Create a factor with colors based on divisions (will add new column and assign color)
-ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, breaks = fcst_breaks, labels = fcst_colors[1:5], include.lowest = TRUE)
-
-```
-
-```{r Charts}
-# POPULATION CHART
-#library(viridis)
-
-# Read the CSV data
+```{r Population Chart Setup}
+# Load in population information
 pop_data <- read.csv("lesotho_pop_short1.csv")
 
-#population chart with only at-risk districts
+# population chart with only at-risk districts
 pop_data_risk <- subset(pop_data, adm1_name %in% c("Mafeteng", "Mohale's Hoek", "Thaba Tseka", "Quthing"))
-
-# Create a bar chart to visualize the total population by district
-ggplot(pop_data, aes(x = adm1_name, y = Total, fill = adm1_name)) +
-  geom_bar(stat = "identity") +
-  labs(
-    title = "Population by District in Lesotho",
-    x = "District",
-    y = "Total Population"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_viridis_d() +
-  #scale_fill_discrete(name = "District") +
-  guides(fill = 'none') +
-  scale_y_continuous(breaks = seq(0, max(pop_data$Total), by = 50000), labels = scales::comma_format())
 ```
 
-```{r Gantt Chart Setup}
+```{r Main Page Gantt Chart Setup}
+
+# Create Dataframe (using Annex 1 - AA Timeline from AAP Template)
 df <- as.data.frame(rbind(
-    c("Seasonal Impact", "Season", '2023-10-01', '2023-12-31', 'Season Start'),
-    c("Seasonal Impact", "Season", '2024-01-01', '2024-03-31', 'Mid/Peak Season'),
-    c("Seasonal Impact", "Season", '2024-04-01', '2024-05-31', 'Harvest'),
+    c("Seasonal Impact", "Season", '2023-10-01', '2023-12-31', 'Season Start', "1"),
+    c("Seasonal Impact", "Season", '2024-01-01', '2024-03-31', 'Mid/Peak Season', "2"),
+    c("Seasonal Impact", "Season", '2024-04-01', '2024-05-31', 'Harvest', "3"),
     
-    c("Seasonal Impact", "Impact 1", '2023-11-01', '2023-12-31', 'Food Insecurity'),
-    c("Seasonal Impact", "Impact 2", '2023-12-01', '2023-12-31', 'Disease Outbreak'),
-    c("Seasonal Impact", "Impact 3", '2023-12-01', '2023-12-31', 'Water Scarcity'),
-    c("Seasonal Impact", "Impact 4", '2023-10-01', '2023-12-31', 'Loss of Livestock'),
+    c("Seasonal Impact", "Impact 1", '2023-11-01', '2023-12-31', 'Food Insecurity', "4"),
+    c("Seasonal Impact", "Impact 2", '2023-12-01', '2023-12-31', 'Disease Outbreak', "5"),
+    c("Seasonal Impact", "Impact 3", '2023-12-01', '2023-12-31', 'Water Scarcity', "6"),
+    c("Seasonal Impact", "Impact 4", '2023-10-01', '2023-12-31', 'Loss of Livestock', "7"),
     
-    c("Forecast Triggers", "Readiness Trigger (OND)", '2023-07-01', '2023-09-30', 'LMS'),
-    c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'LMS'),
-    c("Forecast Triggers", "Activation Trigger (OND)", '2023-08-01', '2023-09-30', 'WASCO'),
-    c("Forecast Triggers", "Activation Trigger (DJF)", '2023-10-01', '2023-11-30', 'LMS'),
+    c("Forecast Triggers", "Readiness Trigger (OND)", '2023-07-01', '2023-09-30', 'LMS & IRI', "8"),
+    c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'LMS & IRI', "9"),
+    c("Forecast Triggers", "Activation Trigger (OND)", '2023-08-01', '2023-09-30', 'LMS & IRI', "10"),
+    c("Forecast Triggers", "Activation Trigger (DJF)", '2023-10-01', '2023-11-30', 'LMS & IRI', "11"),
     
-    c("Anticipatory Actions", "Intervention 1", '2023-08-01', '2023-08-30', 'LMS'),
-    c("Anticipatory Actions", "Intervention 1", '2023-09-01', '2024-01-31', 'WASCO'),
-    c("Anticipatory Actions", "Intervention 1", '2024-02-01', '2024-03-31', 'WFP'),
+    c("Anticipatory Actions", "Intervention 1", '2023-08-01', '2023-08-30', 'DMA, Min. of Health, SD, MAFSN, DRWS', "12"),
+    c("Anticipatory Actions", "Intervention 1", '2023-09-01', '2024-01-31', 'DMA, Min. of Health, SD, MAFSN, DRWS', "13"),
+    c("Anticipatory Actions", "Intervention 1", '2024-02-01', '2024-03-31', 'DMA, Min. of Health, SD, MAFSN, DRWS', "14"),
     
-    c("Anticipatory Actions", "Intervention 2", '2023-08-01', '2023-08-30', 'LMS'),
-    c("Anticipatory Actions", "Intervention 2", '2023-09-01', '2024-01-31', 'WASCO'),
-    c("Anticipatory Actions", "Intervention 2", '2024-02-01', '2024-03-31', 'WFP'),
+    c("Anticipatory Actions", "Intervention 2", '2023-08-01', '2023-08-30', 'SD, MAFSN, MFRSWC, DRWS, Min. of Health', "15"),
+    c("Anticipatory Actions", "Intervention 2", '2023-09-01', '2024-01-31', 'SD, MAFSN, MFRSWC, DRWS, Min. of Health', "16"),
+    c("Anticipatory Actions", "Intervention 2", '2024-02-01', '2024-03-31', 'SD, MAFSN, MFRSWC, DRWS, Min. of Health', "17"),
     
-    c("Anticipatory Actions", "Intervention 3", '2023-08-01', '2023-08-30', 'WASCO'),
-    c("Anticipatory Actions", "Intervention 3", '2023-09-01', '2024-01-31', 'WFP'),
-    c("Anticipatory Actions", "Intervention 3", '2024-02-01', '2024-03-31', 'LMS'),
+    c("Anticipatory Actions", "Intervention 3", '2023-08-01', '2023-08-30', 'SD, MAFSN, MFRSWC, DRWS, Min. of Health', "18"),
+    c("Anticipatory Actions", "Intervention 3", '2023-09-01', '2024-01-31', 'SD, MAFSN, MFRSWC, DRWS, Min. of Health', "19"),
+    c("Anticipatory Actions", "Intervention 3", '2024-02-01', '2024-03-31', 'SD, MAFSN, MFRSWC, DRWS, Min. of Health', "20"),
     
-    c("Anticipatory Actions", "Intervention 4", '2023-08-01', '2023-10-31', 'WASCO'),
-    c("Anticipatory Actions", "Intervention 4", '2023-11-01', '2024-01-31', 'WFP'),
-    c("Anticipatory Actions", "Intervention 4", '2024-02-01', '2024-03-31', 'LMS'),
+    c("Anticipatory Actions", "Intervention 4", '2023-08-01', '2023-10-31', 'SD, MAFSN, WFP, MFRSWC, Min. of Health', "21"),
+    c("Anticipatory Actions", "Intervention 4", '2023-11-01', '2024-01-31', 'SD, MAFSN, WFP, MFRSWC, Min. of Health', "22"),
+    c("Anticipatory Actions", "Intervention 4", '2024-02-01', '2024-03-31', 'SD, MAFSN, WFP, MFRSWC, Min. of Health', "23"),
     
-    c("M&E", "Outcome", '2024-05-01', '2024-05-31', 'WFP'),
-    c("M&E", "After Action Review", '2024-06-01', '2024-06-30', 'WFP'),
-    c("M&E", "Final Report", '2024-07-01', '2024-08-31', 'WFP')
+    c("M&E", "Outcome", '2024-05-01', '2024-05-31', 'WFP', "24"),
+    c("M&E", "After Action Review", '2024-06-01', '2024-06-30', 'WFP', "25"),
+    c("M&E", "Final Report", '2024-07-01', '2024-08-31', 'WFP', "26")
     )) %>%
-  select("category" = 1, "task" = 2, "start" = 3, "end" = 4, "owner" = 5) %>%
-  mutate(category = (factor(category, levels = unique(category))),
-         task = fct_rev(factor(task, levels = unique(task))),
+  select("Category" = 1, "Task" = 2, "start" = 3, "end" = 4, "Owner" = 5, "serial" = 6) %>%
+  mutate(Category = (factor(Category, levels = unique(Category))),
+         #Owner = fct_rev(factor(Owner, levels = unique(Owner))),
+         serial = fct_rev(factor(serial, levels = unique(serial))),
          start = as.Date(start), 
          end = as.Date(end)) %>%
   mutate(lab_pos = start) %>%
@@ -191,17 +152,19 @@ get_category_colors <- function(num_categories) {
   return(viridis(num_categories))
 }
 # unique categories
-num_categories <- length(unique(df$category))
+num_categories <- length(unique(df$Category))
 # Generate colors 
 bar_colors <- get_category_colors(num_categories)
 # Map colors to the categories 
-df$color <- bar_colors[match(df$category, unique(df$category))]
+df$color <- bar_colors[match(df$Category, unique(df$Category))]
 
 # colors based on owner
 #bar_colors <- c("LMS" = "pink", "WASCO" = "aquamarine", "DMA" = "green", "RWS" = "orange", "MAFSN" = "red", "WFP" = "skyblue", "LMS & IRI" =)
 ```
 
 ```{r Anticipatory Action Gantt Chart Setup}
+
+# Create Dataframe (using Annex 3 - Readiness Measures from AAP Template)
 df_aa <- as.data.frame(rbind(
     c("General Readiness Actions", "1", "General Readiness Action 1", '2023-08-01', '2023-08-31', 'DMA', "Convene a meeting with all relevant stakeholders to roll-out AA's"),
     c("General Readiness Actions", "2", "General Readiness Action 2", '2023-08-01', '2023-08-31', 'WFP', "Filing for funds release from WFP"),
@@ -236,8 +199,8 @@ df_aa <- as.data.frame(rbind(
     c("Anticipatory Action 4", "27", "Anticipatory Action 4B", '2023-09-01', '2023-09-30', 'SD', "Provision and verification of beneficiaries"),
     c("Anticipatory Action 4", "28", "Anticipatory Action 4C", '2023-09-01', '2023-09-30', 'WFP', "Engage financial service providers for CBT")
     )) %>%
-  select("category" = 1, "serial" = 2, "task" = 3, "start" = 4, "end" = 5, "owner" = 6, "description" = 7) %>%
-  mutate(category = (factor(category, levels = unique(category))),
+  select("Category" = 1, "serial" = 2, "Task" = 3, "start" = 4, "end" = 5, "Owner" = 6, "Description" = 7) %>%
+  mutate(Category = (factor(Category, levels = unique(Category))),
          serial = fct_rev(factor(serial, levels = unique(serial))),
          #task = fct_rev(factor(task, levels = unique(task))),
          start = as.Date(start), 
@@ -252,11 +215,11 @@ get_category_colors <- function(num_categories) {
   return(viridis(num_categories))
 }
 # unique categories
-num_categories <- length(unique(df_aa$category))
+num_categories <- length(unique(df_aa$Category))
 # Generate colors 
 bar_colors <- get_category_colors(num_categories)
 # Map colors to the categories 
-df_aa$color <- bar_colors[match(df_aa$category, unique(df_aa$category))]
+df_aa$color <- bar_colors[match(df_aa$Category, unique(df_aa$Category))]
 ```
 
 ```{r Dataframe for Anticipatory Action Table}
@@ -265,17 +228,19 @@ df_aa_rev <- df_aa %>%
   mutate(start = as.Date(start),
          end = as.Date(end)) %>%
   select(-date) %>%
-  group_by(category, serial, task, color) %>%
+  group_by(Category, serial, Task, color) %>%
   summarize(
     start = min(start, na.rm = TRUE),
     end = max(end, na.rm = TRUE),
-    owner = first(owner),
-    description = first(description)
+    Owner = first(Owner),
+    Description = first(Description)
   )
 
 ```
 
 ```{r Rainfall Graph Data}
+
+# Create dataframe for the rainfall graph (using ENACTS rainfall data)
 rain_data <- data.frame(
     Year = c(2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013),
     Month = c(2023.7, 2022.7, 2021.7, 2020.7, 2019.7, 2018.7, 2017.7, 2016.7, 2015.7, 2014.7, 2013.7, 2023.6, 2022.6, 2021.6, 2020.6, 2019.6, 2018.6, 2017.6, 2016.6, 2015.6, 2014.6, 2013.6, 2023.8, 2022.8, 2021.8, 2020.8, 2019.8, 2018.8, 2017.8, 2016.8, 2015.8, 2014.8, 2013.8, 2023.9, 2022.9, 2021.9, 2020.9, 2019.9, 2018.9, 2017.9, 2016.9, 2015.9, 2014.9, 2013.9),
@@ -298,9 +263,8 @@ my_theme = create_theme(
 
 
 ```{r Dashboard UI Inputs}
-#header <- dashboardHeader()
 
-# add sections to the sidebar
+# add tabs/sections to the sidebar
 # can change name, icon, and add a label
 sidebar <- dashboardSidebar(
     sidebarMenu(
@@ -320,20 +284,20 @@ body <- dashboardBody(use_theme(my_theme),
   tabItems(
     tabItem(tabName = "dashboard", #assign section
       fluidRow(column(width = 9, #output width
-      box(title = tags$strong("Lesotho Drought Forecast", style = "font-size: 23px;"), width = NULL, leafletOutput("lesotho_map", height = 500),
-            actionButton("reset_map_button", "Reset Map")),
+      box(title = tags$strong("Lesotho Drought Forecast", style = "font-size: 23px;"), width = NULL, leafletOutput("lesotho_map", height = 500), # set output for main dashboard map (lesotho_map)
+            actionButton("reset_map_button", "Reset Map")), # add option to reset map to original view
       ),
-      column(width = 3,
+      column(width = 3, # build map viewing options
        box(title = tags$strong("Map Viewing Options", style = "font-size: 19px;"), width = NULL, height = 500,
         uiOutput("lesotho_level"),
-        selectInput("Select_Level", # create a dropdown menu for user to select input
+        selectInput("Select_Level", # create a dropdown menu for user to select viewing level
               label = "Mode", 
               choices = c("National" = 1, # still need to set national view by removing district lines & labels
                           "District" = 2),
               selected = 2 # the default option to "District"
   ),
         uiOutput("lesotho_month"),
-        selectInput("Select_Month", # create a dropdown menu for user to select input
+        selectInput("Select_Month", # create a dropdown menu for user to select forecasted month
               label = "Month", 
               choices = c("June" = 1,
                           "July" = 2, 
@@ -341,20 +305,20 @@ body <- dashboardBody(use_theme(my_theme),
               selected = 1 # set the default option to "June"
   ),
   uiOutput("lesotho_forecast"),
-        selectInput("Trigger_Level", # create a dropdown menu for user to select input
+        selectInput("Trigger_Level", # create a dropdown menu for user to select severity level
               label = "Severity", 
               choices = c("Mild" = 1,
                           "Moderate" = 2, 
                           "Severe" = 3),
               selected = 1 # set the default option to "Mild"
 ),
-
+  # add a legend for severity levels
   p(class = "text-muted",
           HTML(paste("Mild: 35%", "<br>",
              "Moderate: 25%", "<br>",
              "Severe: 15%"))
           ),
-
+  # add option to see whether 4 most at-risk districts are triggered & legend
   checkboxInput("Trigger_Input", HTML('<b>Show Triggered</b>'), value = FALSE, width = NULL),
   p(class = "text-muted",
          HTML(paste('<span style="color: red;">Drought Hazard Triggered</span>', "<br>",
@@ -364,7 +328,7 @@ body <- dashboardBody(use_theme(my_theme),
 
 ),
        fluidRow(column(width = 12,
-        box(title = "", width = NULL, height = 650, plotlyOutput("fig")),
+        box(title = "", width = NULL, height = 650, plotlyOutput("fig")), # add Gantt Chart to main dashbaord page
          box(title = "Select Range", height = 200,
              # sliderInput(
              # inputId = "range",
@@ -383,40 +347,59 @@ body <- dashboardBody(use_theme(my_theme),
     )),
     tabItem(tabName = "actions",
       fluidRow(column(width = 12,
-        box(title = "", width = NULL, height = 850, plotlyOutput("fig2"))),
+        box(title = "", width = NULL, height = 850, plotlyOutput("fig2"))), # Add anticipatory actions Gantt Chart
         ),
       fluidRow(column(width = 12,
-        box(title = tags$strong("Action Descriptions", style = "font-size: 19px;"), width = NULL, height = 700,
-        selectInput("Action_Selection", # create a dropdown menu for user to select input
+        box(title = tags$strong("Action Descriptions", style = "font-size: 19px;"), width = NULL, height = 500,
+        selectInput("Action_Selection", # create a dropdown menu for user to select action type
               label = "Action Type", 
               choices = c("General Readiness Actions" = 1,
                           "Anticipatory Action 1" = 2, 
                           "Anticipatory Action 2" = 3,
                           "Anticipatory Action 3" = 4,
                           "Anticipatory Action 4" = 5),
-              selected = 1),
-        tableOutput("action_info")))
-    )),
+              selected = 1), # set default selection to General Readiness Actions
+        # selectInput("Owner_Selection", # create a dropdown menu for user to select input
+        #       label = "Action Type", 
+        #       choices = c("Select an Owner" = "",
+        #                   "DMA" = 2, 
+        #                   "WFP" = 3,
+        #                   "SD" = 4,
+        #                   "DRWS" = 5,
+        #                   "WASCO" = 6,
+        #                   "DA" = 7,
+        #                   "RWS" = 8,
+        #                   "Min. of Health" = 9,
+        #                   "MAFSN" = 10,
+        #                   "Dept. of Range" = 11),
+        #       selected = "",
+        #       multiple = TRUE),
+        tableOutput("action_info"))) # select output
+    ),
+    fluidRow(column(width = 12,
+        box(title = tags$strong("Anticipatory Action Implementation Organizations", style = "font-size: 19px;"), width = NULL, height = 700, tableOutput("organization_table"))) # add table to describe organizations
+        )
+    ),
 tabItem(tabName = "rain",
         fluidRow(column(width = 12,
-        box(title = tags$strong("Forecasted vs. Measured Rainfall", style = "font-size: 23px;"), width = NULL, height = 500, plotlyOutput("rain_plot"))
+        box(title = tags$strong("Forecasted vs. Measured Rainfall", style = "font-size: 23px;"), width = NULL, height = 500, plotlyOutput("rain_plot")) # add forecasted rainfall chart
       ))
       ),
 tabItem(tabName = "data",
         fluidRow(column(width = 9,
-        box(title = "", width = NULL, height = 500, plotOutput("population_chart")),
+        box(title = tags$strong("Lesotho Population by District", style = "font-size: 23px;"), width = NULL, height = 500, plotOutput("population_chart")), # add graph to show populations of districts
       ))
     ),
   tabItem(tabName = "risk",
       fluidRow(column(width = 6,
-        box(title = tags$strong("At-Risk District Populations", style = "font-size: 23px;"), width = NULL, height = 500, plotOutput("population_chart_risk")),
+        box(title = tags$strong("At-Risk District Populations", style = "font-size: 23px;"), width = NULL, height = 500, plotOutput("population_chart_risk")), # add graph to show populations of at-risk districts
       ),
       column(width = 6, #output width
-      box(title = tags$strong("At-Risk Districts", style = "font-size: 23px;"), width = NULL, leafletOutput("risk_map", height = 500),
-            actionButton("reset_riskmap_button", "Reset Map")),
+      box(title = tags$strong("At-Risk Districts", style = "font-size: 23px;"), width = NULL, leafletOutput("risk_map", height = 500), # add map showing at-risk districts
+            actionButton("reset_riskmap_button", "Reset Map")), # add reset map view option
       )),
       fluidRow(column(width = 12,
-        box(title = tags$strong("Council & Geographic Information", style = "font-size: 21px;"), width = NULL, height = 700,
+        box(title = tags$strong("Council & Geographic Information", style = "font-size: 21px;"), width = NULL, height = 450,
             selectInput("Risk_District_Selection", # create a dropdown menu for user to select input
               label = "Risk District", 
               choices = c("Mafeteng" = 1,
@@ -424,15 +407,15 @@ tabItem(tabName = "data",
                           "Quthing" = 3,
                           "Thaba-Tseka" = 4),
               selected = 1),
-            tableOutput("district_table"))
+            tableOutput("district_table")) # add table showing councils and geographic information of at-risk districts
         ))
     ),
     tabItem(tabName = "guide",
-      fluidRow(column(width = 12,
-        box(title = "FAQ", width = NULL, height = 500, uiOutput("faqText")))
-      ),
-      fluidRow(column(width = 12,
-        box(title = "Supporting Materials", width = NULL, height = 500)
+      #fluidRow(column(width = 12,
+        #box(title = "FAQ", width = NULL, height = 500, uiOutput("faqText"))) # omitted FAQ
+      #),
+      fluidRow(column(width = 12, # add section for supporting materials
+        box(title = tags$strong("Supporting Materials", style = "font-size: 21px;"), width = NULL, height = 500)
       ))
     )
 ))
@@ -440,18 +423,17 @@ tabItem(tabName = "data",
 ```
 
 ```{r Dashboard UI + Server}
-#library(geojsonio)
 
 # add header, sidebar, and body inputs to ui
 ui <- dashboardPage(
-  dashboardHeader(title = tags$div(HTML('<b style="font-size: 16px;">Lesotho Dashboard</b>')), 
+  dashboardHeader(title = tags$div(HTML('<b style="font-size: 16px;">Lesotho Dashboard</b>')), #dashboard title
                   titleWidth = 500,
                   tags$li(class = "dropdown",
             tags$style(".main-header {max-height: 100px}"),
             tags$style(".main-header .logo {height: 50px;}"))),
   sidebar,
   body
-)
+) # NOTE: to make title longer and larger, omit dashboard theme
 
 
 
@@ -460,8 +442,8 @@ server <- function(input, output, session) {
 
 # Build reactive user input for forecast viewing  
  selected_severity <- reactive({
-    severity_level <- input$Trigger_Level
-    month_select <- input$Select_Month
+    severity_level <- input$Trigger_Level # trigger level selection
+    month_select <- input$Select_Month # month selection
     if (severity_level == 1) {
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "mild", ]
     } else if (severity_level == 2) {
@@ -482,9 +464,9 @@ server <- function(input, output, session) {
       ondgeojson <- ondgeojson
     }
     
-    ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, 
+    ondgeojson$ColorFcst <- cut(ondgeojson$RainFcstV2, # set colors based on user inputs and forecasted drought
                        breaks = c(25, 30, 35, 40, 45, 50, 55, 60, 65, 70), 
-                       labels = c("#1b0c41", "#4a0c6b", "#781c6d", "#a52c60", "#cf4446", "#ed6925", "#fb9b06", "#f7d13d", "#fcffa4"),
+                       labels = c("#1b0c41", "#4a0c6b", "#781c6d", "#a52c60", "#cf4446", "#ed6925", "#fb9b06", "#f7d13d", "#fcffa4"), # colors are taken from inferno palette
                        include.lowest = TRUE)
 
     return(ondgeojson)
@@ -498,7 +480,7 @@ trigger_show <- reactive({
   return(four_ondgeojson)
 })
 
-# Build Lesotho map
+# Build main page Lesotho map
   output$lesotho_map <- renderLeaflet({ 
   #filtered_data <- selected_severity()
     leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>% # set center coordinates and zoom for initial view
@@ -506,12 +488,12 @@ trigger_show <- reactive({
       addGeoJSON(GeoData, weight = 1, color = "black", fill = FALSE) %>%
       addLabelOnlyMarkers(data = df_lab, ~Long, ~Lat, label = ~Name, # add district labels
       labelOptions = labelOptions(noHide = T, textsize = "9px", direction = "center", style = list(
-        "color" = "black", "font-weight" = "bold", "background" = "transparent", "border" = "none", "box-shadow" = "none"))) %>%
+        "color" = "black", "font-weight" = "bold", "background" = "transparent", "border" = "none", "box-shadow" = "none"))) %>% # edit district labels
       
       # add hover feature --> district boundaries highlighted when cursor hovers
       addPolygons(data = selected_severity(), color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.77,
-      fillColor = ~ColorFcst, # Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing most at-risk
+      fillColor = ~ColorFcst, 
       highlightOptions = highlightOptions(color = "white", weight = 2,
       bringToFront = TRUE)) %>% 
       
@@ -527,39 +509,22 @@ trigger_show <- reactive({
       position = "bottomright",  # adjust position
       colors = c("#fcffa4", "#f7d13d", "#fb9b06", "#ed6925", "#cf4446", "#a52c60", "#781c6d", "#4a0c6b", "#1b0c41"),
       labels = c("25", "30", "35", "40", "45", "50", "55", "60", "65"),
-      title = "Probability of Threshold Excedence (%)",
+      title = "Probability of </br> Threshold Excedence (%)",
       opacity = 0.77,
-      labFormat = labelFormat(suffix = "%")
+      labFormat = labelFormat(suffix = "%") # suffix is not currently working
     ) 
   })
   
   # function to reset map back to original view
   observeEvent(input$reset_map_button, {
     leafletProxy("lesotho_map") %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5)
-    #updateSelectInput(session, "Trigger_Level", selected = 1)
   })
   
 # Insert Gantt Chart code
 
-# filtered_df <- reactive({
-#     df %>%
-#       filter(start >= input$range[1] & end <= input$range[2])
-#   }) 
-
 output$fig <- renderPlotly({
-    # selected_category <- reactive({
-    #     category_selection <- input$categoryInput
-    #     if (category_selection == "All") {
-    #         # Show all categories
-    #         df <- df
-    #     } else {
-    #         # Filter data based on the selected category
-    #         df <- df[df$category %in% category_selection, ]
-    #     }
-    #     return(df)
-    # })
     p <- ggplot() +
-      geom_line(data=df, mapping=aes(x=fct_rev(fct_inorder(task)), y=date, color=category, text = paste(owner)), size=4, show.legend = FALSE) +
+      geom_line(data=df, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=4, show.legend = FALSE) +
       geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
       coord_flip() +
       scale_y_date(date_breaks = "1 month", labels = scales::date_format("%b")) +
@@ -569,7 +534,7 @@ output$fig <- renderPlotly({
            x = "",
            y = "Month",
            color = "Owner") +
-      facet_grid(category ~ ., space = "free_y", scales = "free_y", switch = "both") +
+      facet_grid(Category ~ ., space = "free_y", scales = "free_y", switch = "both") +
       theme_bw() +
       theme(
         axis.text.x = element_text(angle = 90, size = 9, family = "Helvetica"),
@@ -598,7 +563,7 @@ output$fig <- renderPlotly({
 #AA Gantt Chart
 output$fig2 <- renderPlotly({
     p <- ggplot() +
-      geom_line(data=df_aa, mapping=aes(x=fct_rev(fct_inorder(task)), y=date, color=category, text = paste(owner)), size=3, show.legend = FALSE) +
+      geom_line(data=df_aa, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=3, show.legend = FALSE) +
       geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
       coord_flip() +
       scale_y_date(date_breaks = "1 month", labels = scales::date_format("%b")) +
@@ -608,7 +573,7 @@ output$fig2 <- renderPlotly({
            x = "",
            y = "Month",
            color = "Owner") +
-      facet_grid(category ~ ., space = "free_y", scales = "free_y", switch = "both") +
+      facet_grid(Category ~ ., space = "free_y", scales = "free_y", switch = "both") +
       theme_bw() +
       theme(
         axis.text.x = element_text(angle = 90, size = 9, family = "Helvetica"),
@@ -622,7 +587,7 @@ output$fig2 <- renderPlotly({
 
       )
     
-    # remove viewing option included with plotly
+    # remove viewing options included with plotly
     ggplotly(p, tooltip = "none") %>% 
     config(displayModeBar = FALSE) %>% 
     layout(margin = list(l = 150, r = 150, b = 50, t = 40), height = 700, 
@@ -635,39 +600,61 @@ output$fig2 <- renderPlotly({
     
   })
 
+# create reactive viewing option for the Anticipatory Actions tab table
 filtered_data <- reactive({
     action_select <- input$Action_Selection
     #owner_select <- input$Owner_Selection
     
-    
     if (action_select == 1) {
-      df_aa_rev <- df_aa_rev[df_aa_rev$category == "General Readiness Actions", ]
+      df_aa_rev <- df_aa_rev[df_aa_rev$Category == "General Readiness Actions", ]
     } else if (action_select == 2) {
-      df_aa_rev <- df_aa_rev[df_aa_rev$category == "Anticipatory Action 1", ]
+      df_aa_rev <- df_aa_rev[df_aa_rev$Category == "Anticipatory Action 1", ]
     } else if (action_select == 3) {
-      df_aa_rev <- df_aa_rev[df_aa_rev$category == "Anticipatory Action 2", ]
+      df_aa_rev <- df_aa_rev[df_aa_rev$Category == "Anticipatory Action 2", ]
     } else if (action_select == 4) {
-      df_aa_rev <- df_aa_rev[df_aa_rev$category == "Anticipatory Action 3", ]
+      df_aa_rev <- df_aa_rev[df_aa_rev$Category == "Anticipatory Action 3", ]
     } else if (action_select == 5) {
-      df_aa_rev <- df_aa_rev[df_aa_rev$category == "Anticipatory Action 4", ]
+      df_aa_rev <- df_aa_rev[df_aa_rev$Category == "Anticipatory Action 4", ]
     } else {
       df_aa_rev <- df_aa_rev
     }
-#      if (!is.null(owner_select) && length(owner_select) > 0) {
-#   owner_select <- trimws(owner_select)
-#   df_aa_rev <- df_aa_rev[trimws(df_aa_rev$owner) %in% owner_select, ]
-# }
 
+    # if (owner_select == 2) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "DMA", ]
+    # } else if (owner_select == 3) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "WFP", ]
+    # } else if (owner_select == 4) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "SD", ]
+    # } else if (owner_select == 5) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "DRWS", ]
+    # } else if (owner_select == 6) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "WASCO", ]
+    # } else if (owner_select == 7) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "DA", ]
+    # } else if (owner_select == 8) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "RWS", ]
+    # } else if (owner_select == 9) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "Min. of Health", ]
+    # } else if (owner_select == 10) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "MAFSN", ]
+    # } else if (owner_select == 11) {
+    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "Dept. of Range", ]
+    # } else {
+    #   df_aa_rev <- df_aa_rev
+    # }
+    
     return(df_aa_rev)
   })
 
+# render anticipatory actions table based on reactive input
 output$action_info <- renderTable({
     selected_data <- filtered_data() %>%
       arrange(desc(row_number()))
-    selected_data[, c("task", "owner", "description")]
+    selected_data[, c("Task", "Owner", "Description")]
   })
 
 
+# create reactive viewing option for the At-Risk Districts tab table
 filtered_data1 <- reactive({
     district_select <- input$Risk_District_Selection
     
@@ -685,22 +672,21 @@ filtered_data1 <- reactive({
 
     return(df_target_areas)
   })
-#At-Risk Districts Table
-#output$district_table <- renderDataTable({
-        #df_target_areas
-    #})
 
+
+# render At-Risk Districts tab table
 output$district_table <- renderTable({
     selected_data1 <- filtered_data1()# %>%
       #arrange(desc(row_number()))
     selected_data1[, c("Council", "Geographic.Zone")]
   })
 
-#output$population_table <- renderDataTable({
-        #df_target_areas
-    #})
+# render organization information table 
+output$organization_table <- renderTable({
+        df_organizations
+    })
 
-# FAQ Output 
+# FAQ Output (currently omitted in dashboard)
 output$faqText <- renderUI({
   HTML("<p><b>What is the map displaying?</b> The map which appears under the dashboard tab displays Lesotho's districts and forecasted rainfall. The 'Month' option allows for the selection of either the June, July or August forecast. The 'Severity' option allows for the selection of either Mild, Moderate, or Severe severeity. Selecting the 'Show Triggered' checkbox shows whether the most at-risk districts (Mafeteng, Mohale's Hoek, Quthing, and Thaba-Tseka) are forecasted to have a drought (indicated by bold red color).
        <p><b>What is the Gantt Chart displaying?</b> The Gantt Chart shows the timeline of.
@@ -709,11 +695,12 @@ output$faqText <- renderUI({
        ")
 })
 
+# build district population graph for Additonal Information tab
 output$population_chart <- renderPlot({
     ggplot(pop_data, aes(x = adm1_name, y = Total, fill = adm1_name)) +
       geom_bar(stat = "identity") +
       labs(
-        title = "Population by District in Lesotho",
+        title = "",
         x = "District",
         y = "Total Population"
       ) +
@@ -729,7 +716,7 @@ output$population_chart <- renderPlot({
       scale_y_continuous(breaks = seq(0, max(pop_data$Total), by = 50000), labels = scales::comma_format())
   })
 
-# At-risk districts population graph
+# At-risk districts population graph for At-Risk Districts tab
 output$population_chart_risk <- renderPlot({
     ggplot(pop_data_risk, aes(x = adm1_name, y = Total, fill = adm1_name)) +
       geom_bar(stat = "identity") +
@@ -775,7 +762,7 @@ output$population_chart_risk <- renderPlot({
   })
 
 
-#Rainfall Graph
+# Rainfall Graph
 output$rain_plot <- renderPlotly({
     plot_ly(data = rain_data, type = 'scatter', mode = 'lines', x = ~Year, y = ~RainHistory, name = 'Rain History', color = '#fb9b06') %>%
       add_trace(type = 'bar', x = ~Month, y = ~RainForecast, name = 'Rain Forecast', yaxis = 'y2', marker = list(color = '#21918c')) %>%
