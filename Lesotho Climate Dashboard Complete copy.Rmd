@@ -8,36 +8,45 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(base)
-library(readr)
-library(tidyr)
-library(dplyr)
-library(tidyselect)
-library(ggplot2)
-library(forcats)
-library(shiny)
-library(leaflet)
-library(tidygeocoder)
-library(ggmap)
-library(mapview)
-library(sf)
-library(ggmap)
-library(geojsonio)
-library(htmltools)
-library(sp)
-library(geojsonsf)
-library(leaflet.extras)
-library(shinydashboard)
-library(rsconnect)
-library(here)
-library(plotly)
-library(readr)
-library(viridis)
-library(viridisLite)
-library(fresh)
-library(tableHTML)
+# Libraries for data manipulation and visualization
+library(base)         # Fundamental functions and datasets in R
+library(readr)        # Reading and writing delimited text files
+library(tidyr)        # Tools for data tidying
+library(dplyr)        # Data manipulation
+library(tidyselect)   # Tidy selection helpers
+library(ggplot2)      # Grammar of graphics for plotting
+library(forcats)      # Tools for working with categorical variables
 
+# Libraries for building interactive web applications
+library(shiny)        # Framework for creating web applications in R
+library(leaflet)      # Interactive maps
+library(tidygeocoder) # Geocoding (converting addresses to geographic coordinates)
+library(ggmap)        # Tools for working with Google Maps and OpenStreetMap data
+library(mapview)      # Interactive viewing of spatial data
+library(sf)           # Simple Features for spatial data
+library(geojsonio)   # Tools for working with GeoJSON data
+library(htmltools)    # Tools for HTML generation
+library(sp)           # Classes and methods for spatial data
+library(geojsonsf)   # Conversion between GeoJSON and Simple Features
+library(leaflet.extras) # Additional functionalities for leaflet package
 
+# Libraries for building dashboard-like interfaces
+library(shinydashboard) # Dashboard framework for Shiny applications
+
+# Libraries for deployment and publishing
+library(rsconnect)    # Deployment of Shiny applications
+library(here)         # Helps manage file paths in projects
+
+# Libraries for interactive and dynamic plotting
+library(plotly)       # Interactive plots
+
+# Additional visualization-related libraries
+library(viridis)      # Color palettes for data visualization
+library(viridisLite)  # Subset of the viridis color palette
+library(fresh)        # Themes and palettes for ggplot2
+library(tableHTML)    # Creation of HTML tables with CSS styling
+
+# Citattion for ggmap
 #D. Kahle and H. Wickham. ggmap: Spatial Visualization with ggplot2. The R Journal, 5(1),
 #  144-161. URL http://journal.r-project.org/archive/2013-1/kahle-wickham.pdf
 ```
@@ -74,7 +83,7 @@ df_lab <- data.frame(
   Long = c(27.970415, 27.668363, 28.701420, 27.378837, 27.796710, 28.6, 29.0656, 27.878, 28.283234, 28.611562)
 )
 
-# Load in shaoefiles for district boundaries
+# Load in shapefiles for district boundaries
 GeoData <- readLines(here("mygeodata_merged.json")) %>% 
   paste(collapse = "\n") 
 
@@ -83,7 +92,7 @@ geojson <- geojsonsf::geojson_sf(GeoData) # Parse GeoJSON data
 mgeojson <- merge(geojson, df_pop, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
 
 ondgeojson <- merge(mgeojson, df_ond, by.x = "adm1_name", by.y = "adm1_name") # merge data frames by district names
-#final datafram contains population info, forecast info, and shape files info
+#final dataframe contains population info, forecast info, and shape files info
 
 # filtered dataframe with 4 most at-r-sk districts: Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing
 four_ondgeojson <- ondgeojson %>%
@@ -100,7 +109,7 @@ pop_data_risk <- subset(pop_data, adm1_name %in% c("Mafeteng", "Mohale's Hoek", 
 
 ```{r Main Page Gantt Chart Setup}
 
-# Create Dataframe (using Annex 1 - AA Timeline from AAP Template)
+# Create dataframe for the main Gantt Chart (using Annex 1 - AA Timeline from AAP Template)
 df <- as.data.frame(rbind(
     c("Seasonal Impact", "Season", '2023-10-01', '2023-12-31', 'Season Start', "1"),
     c("Seasonal Impact", "Season", '2024-01-01', '2024-03-31', 'Mid/Peak Season', "2"),
@@ -164,7 +173,7 @@ df$color <- bar_colors[match(df$Category, unique(df$Category))]
 
 ```{r Anticipatory Action Gantt Chart Setup}
 
-# Create Dataframe (using Annex 3 - Readiness Measures from AAP Template)
+# Create Dataframe for the Anticipatory Actions Gantt Chart (using Annex 3 - Readiness Measures from AAP Template)
 df_aa <- as.data.frame(rbind(
     c("General Readiness Actions", "1", "General Readiness Action 1", '2023-08-01', '2023-08-31', 'DMA', "Convene a meeting with all relevant stakeholders to roll-out AA's"),
     c("General Readiness Actions", "2", "General Readiness Action 2", '2023-08-01', '2023-08-31', 'WFP', "Filing for funds release from WFP"),
@@ -256,7 +265,7 @@ rain_data <- data.frame(
 #library(fresh)
 my_theme = create_theme(
   adminlte_color(
-    light_blue = "#4898a8"
+    light_blue = "#4898a8" # choose color for the top and side bars
   )
 )
 ```
@@ -290,14 +299,14 @@ body <- dashboardBody(use_theme(my_theme),
       column(width = 3, # build map viewing options
        box(title = tags$strong("Map Viewing Options", style = "font-size: 19px;"), width = NULL, height = 500,
         uiOutput("lesotho_level"),
-        selectInput("Select_Level", # create a dropdown menu for user to select viewing level
+        selectInput("Select_Level", # create a drop down menu for user to select viewing level
               label = "Mode", 
               choices = c("National" = 1, # still need to set national view by removing district lines & labels
                           "District" = 2),
               selected = 2 # the default option to "District"
   ),
         uiOutput("lesotho_month"),
-        selectInput("Select_Month", # create a dropdown menu for user to select forecasted month
+        selectInput("Select_Month", # create a drop down menu for user to select forecasted month
               label = "Month", 
               choices = c("June" = 1,
                           "July" = 2, 
@@ -305,7 +314,7 @@ body <- dashboardBody(use_theme(my_theme),
               selected = 1 # set the default option to "June"
   ),
   uiOutput("lesotho_forecast"),
-        selectInput("Trigger_Level", # create a dropdown menu for user to select severity level
+        selectInput("Trigger_Level", # create a drop down menu for user to select severity level
               label = "Severity", 
               choices = c("Mild" = 1,
                           "Moderate" = 2, 
@@ -444,7 +453,7 @@ server <- function(input, output, session) {
  selected_severity <- reactive({
     severity_level <- input$Trigger_Level # trigger level selection
     month_select <- input$Select_Month # month selection
-    if (severity_level == 1) {
+    if (severity_level == 1) { # ie. if the input selected is 1 --> this corresponds to mild severity in the dataframe
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "mild", ]
     } else if (severity_level == 2) {
       ondgeojson <- ondgeojson[ondgeojson$TriggerLevel == "moderate", ]
@@ -522,19 +531,27 @@ trigger_show <- reactive({
   
 # Insert Gantt Chart code
 
-output$fig <- renderPlotly({
+output$fig <- renderPlotly({ # set ouptut name to fig
     p <- ggplot() +
+      # Plot lines based on data from the dataframe df. It uses Task on the x-axis, date on the y-axis, colors by Category, and displays Owner information in the tooltip
       geom_line(data=df, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=4, show.legend = FALSE) +
+      # Add a horizontal dashed line at the date "2023-01-01"
       geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
-      coord_flip() +
+      coord_flip() + # Flips the x and y axes
+      # Set the breaks and labels for the y-axis as monthly intervals
       scale_y_date(date_breaks = "1 month", labels = scales::date_format("%b")) +
+      # Manually set the colors for Category using the bar_colors variable
       scale_color_manual(values = bar_colors) +
+      # Format the x-axis as dates in abbreviated month format
       scale_x_discrete(labels = scales::date_format("%b")) +
+      # Set the title and axis labels
       labs(title="Lesotho Anticipatory Action Timeline", face = "bold",
            x = "",
            y = "Month",
            color = "Owner") +
+      # Facet the plot based on category
       facet_grid(Category ~ ., space = "free_y", scales = "free_y", switch = "both") +
+      # Set theme elements like text size, font family, grid lines, legend position, and plot margins
       theme_bw() +
       theme(
         axis.text.x = element_text(angle = 90, size = 9, family = "Helvetica"),
@@ -548,12 +565,12 @@ output$fig <- renderPlotly({
 
       )
     
-    # remove viewing option included with plotly
+    # Remove viewing option included with plotly
     ggplotly(p, tooltip = "text") %>% 
     config(displayModeBar = FALSE) %>% 
     layout(margin = list(l = 150, r = 150, b = 50, t = 40), height = 500, 
-    xaxis = list(fixedrange = TRUE),
-    yaxis = list(fixedrange = TRUE),
+    xaxis = list(fixedrange = TRUE), # Remove zoom option for x-axis
+    yaxis = list(fixedrange = TRUE),  # Remove zoom option for each y-axis category (4)
     yaxis2 = list(fixedrange = TRUE),
     yaxis3 = list(fixedrange = TRUE),
     yaxis4 = list(fixedrange = TRUE))
@@ -561,7 +578,8 @@ output$fig <- renderPlotly({
   })
 
 #AA Gantt Chart
-output$fig2 <- renderPlotly({
+# Same code as above, but usinf df_aa
+output$fig2 <- renderPlotly({ # set ouptut name to fig2
     p <- ggplot() +
       geom_line(data=df_aa, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=3, show.legend = FALSE) +
       geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
@@ -605,7 +623,7 @@ filtered_data <- reactive({
     action_select <- input$Action_Selection
     #owner_select <- input$Owner_Selection
     
-    if (action_select == 1) {
+    if (action_select == 1) { # ie. if the input selected is 1 --> this corresponds to General Readiness Actions in the dataframe
       df_aa_rev <- df_aa_rev[df_aa_rev$Category == "General Readiness Actions", ]
     } else if (action_select == 2) {
       df_aa_rev <- df_aa_rev[df_aa_rev$Category == "Anticipatory Action 1", ]
@@ -650,7 +668,7 @@ filtered_data <- reactive({
 output$action_info <- renderTable({
     selected_data <- filtered_data() %>%
       arrange(desc(row_number()))
-    selected_data[, c("Task", "Owner", "Description")]
+    selected_data[, c("Task", "Owner", "Description")] # Only show Task, Owner, & Description
   })
 
 
@@ -678,7 +696,7 @@ filtered_data1 <- reactive({
 output$district_table <- renderTable({
     selected_data1 <- filtered_data1()# %>%
       #arrange(desc(row_number()))
-    selected_data1[, c("Council", "Geographic.Zone")]
+    selected_data1[, c("Council", "Geographic.Zone")] # Only show Council, & Geographic Zone
   })
 
 # render organization information table 
@@ -688,6 +706,7 @@ output$organization_table <- renderTable({
 
 # FAQ Output (currently omitted in dashboard)
 output$faqText <- renderUI({
+  # <p> creates a new paragraph and <b> makes the enclosed text bold
   HTML("<p><b>What is the map displaying?</b> The map which appears under the dashboard tab displays Lesotho's districts and forecasted rainfall. The 'Month' option allows for the selection of either the June, July or August forecast. The 'Severity' option allows for the selection of either Mild, Moderate, or Severe severeity. Selecting the 'Show Triggered' checkbox shows whether the most at-risk districts (Mafeteng, Mohale's Hoek, Quthing, and Thaba-Tseka) are forecasted to have a drought (indicated by bold red color).
        <p><b>What is the Gantt Chart displaying?</b> The Gantt Chart shows the timeline of.
        <p> <b>What is the rainfall graph displaying?</b> .
@@ -695,28 +714,31 @@ output$faqText <- renderUI({
        ")
 })
 
-# build district population graph for Additonal Information tab
+# build district population graph for Additional Information tab
 output$population_chart <- renderPlot({
+    # Using pop_data dataframe, x = district name, y = total population, fill by district
     ggplot(pop_data, aes(x = adm1_name, y = Total, fill = adm1_name)) +
-      geom_bar(stat = "identity") +
-      labs(
+      geom_bar(stat = "identity") + # Create a bar plot with actual values from Total column
+      labs( # Set title, x-axis label, and y-axis label
         title = "",
         x = "District",
         y = "Total Population"
       ) +
-      theme_minimal() +
-      theme(
+      theme_minimal() + # Apply a minimal theme to the plot
+      theme( # Customize axis and title appearance
         axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), 
         axis.text.y = element_text(color = "black"),
         plot.title = element_text(face = "bold", size = 23),  
         axis.title.x = element_text(face = "bold", size = 15), 
         axis.title.y = element_text(face = "bold", size = 15)) +      
-      scale_fill_manual(values = rev(viridisLite::mako(10))) +
-      guides(fill = 'none') +
+      scale_fill_manual(values = rev(viridisLite::mako(10))) + # Set fill colors for the bars using the viridisLite palette
+      guides(fill = 'none') + # Remove the legend for fill
+      # Set the y-axis breaks and labels
       scale_y_continuous(breaks = seq(0, max(pop_data$Total), by = 50000), labels = scales::comma_format())
   })
 
 # At-risk districts population graph for At-Risk Districts tab
+# Same code as above, but using a subsetted dataframe (pop_data_risk) to only show at-risk districts
 output$population_chart_risk <- renderPlot({
     ggplot(pop_data_risk, aes(x = adm1_name, y = Total, fill = adm1_name)) +
       geom_bar(stat = "identity") +
@@ -738,6 +760,7 @@ output$population_chart_risk <- renderPlot({
   })
 
 # At-risk districts map
+# Same as main page map, but only highlighting the most at-risk districts (Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing)
  output$risk_map <- renderLeaflet({ 
   #filtered_data <- selected_severity()
     leaflet() %>% setView(lng = 28.2336, lat = -29.6091, zoom = 7.5) %>% # set center coordinates and zoom for initial view
@@ -750,7 +773,7 @@ output$population_chart_risk <- renderPlot({
       # add fill based on "Show Triggered" Input
       addPolygons(data = four_ondgeojson, color = "#444444", weight = 1, smoothFactor = 0.5,
       opacity = 1.0, fillOpacity = 0.77,
-      fillColor = ~"#26828e", # Mafeteng, Mohale’s Hoek, Thaba-Tseka, and Quthing most at-risk
+      fillColor = ~"#26828e", 
       highlightOptions = highlightOptions(color = "white", weight = 2,
       bringToFront = TRUE))
   })
@@ -764,19 +787,24 @@ output$population_chart_risk <- renderPlot({
 
 # Rainfall Graph
 output$rain_plot <- renderPlotly({
+      # Initialize plot with rain_data as the data source
     plot_ly(data = rain_data, type = 'scatter', mode = 'lines', x = ~Year, y = ~RainHistory, name = 'Rain History', color = '#fb9b06') %>%
+      # Add a trace for Rain Forecast as a bar plot, assigning it to the secondary y-axis
       add_trace(type = 'bar', x = ~Month, y = ~RainForecast, name = 'Rain Forecast', yaxis = 'y2', marker = list(color = '#21918c')) %>%
+      # Configure the layout settings for the plot
       layout(title = "Rain History and Forecast",
-             yaxis2 = list(overlaying = "y", side = "right", title = "Bar Data"),
+             yaxis2 = list(overlaying = "y", side = "right", title = "Bar Data"), # Configure the secondary y-axis
              xaxis = list(title = "Time", tickmode = "array", tickvals = unique(rain_data$Year), ticktext = unique(rain_data$Year)),
-             yaxis = list(title = "Line Data"),
-             bargroupgap = 0.1,
-             bargap = 0.1
+             yaxis = list(title = "Line Data"), # Set y-axis title for the main trace (Rain History)
+             bargroupgap = 0.1, # Set the gap between bar groups
+             bargap = 0.1  # et the gap between bars within a group
+             # NOTE: bargroupgap & bargap arguments will be ignored if a width argument is added to plot_ly
+             # NOTE: these is missing data for months, so adjusting the above arguments fill not fix the gaps in the graph
       ) %>%
-    config(displayModeBar = FALSE) %>%
-    layout(margin = list(l = 50, r = 10, b = 50, t = 50),
-    xaxis = list(fixedrange = TRUE),
-    yaxis = list(fixedrange = TRUE),
+    config(displayModeBar = FALSE) %>% # Disable the display mode bar for the plot
+    layout(margin = list(l = 50, r = 10, b = 50, t = 50), # Set plot margins
+    xaxis = list(fixedrange = TRUE), # Remove zoom option for x-axis
+    yaxis = list(fixedrange = TRUE), # Remove zoom option for both y-axes
     yaxis2 = list(fixedrange = TRUE))
   })
   
