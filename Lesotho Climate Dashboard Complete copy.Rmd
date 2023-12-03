@@ -66,10 +66,14 @@ df_ond <- df_ond %>%
     RainFcstV2 < FrcstThreshold ~ "no")) 
 
 # Load in dataframe containing the 4 at-risk districts, their councils, and geographic zones
-df_target_areas <- read.csv('target_areas.csv')
+df_target_areas <- read.csv('target_areas.csv', check.names=FALSE)
 
 # Load in Organization Information
 df_organizations <- read.csv("org_name.csv")
+
+# Load in severity levels information
+df_severity_levels <- read.csv("lesotho_severity_forecast.csv", check.names=FALSE)
+
 
 ```
 
@@ -110,7 +114,7 @@ pop_data_risk <- subset(pop_data, adm1_name %in% c("Mafeteng", "Mohale's Hoek", 
 ```{r Main Page Gantt Chart Setup}
 
 # Create dataframe for the main Gantt Chart (using Annex 1 - AA Timeline from AAP Template)
-df <- as.data.frame(rbind(
+df_main <- as.data.frame(rbind(
     c("Seasonal Impact", "Season", '2023-10-01', '2023-12-31', 'Season Start', "1"),
     c("Seasonal Impact", "Season", '2024-01-01', '2024-03-31', 'Mid/Peak Season', "2"),
     c("Seasonal Impact", "Season", '2024-04-01', '2024-05-31', 'Harvest', "3"),
@@ -154,18 +158,18 @@ df <- as.data.frame(rbind(
   mutate(lab_pos = start) %>%
   pivot_longer(3:4, names_to = "variable", values_to = "value")
 
-df$date <- as.Date(df$value)
+df_main$date <- as.Date(df_main$value)
 
 # bar colors
 get_category_colors <- function(num_categories) {
   return(viridis(num_categories))
 }
 # unique categories
-num_categories <- length(unique(df$Category))
+num_categories <- length(unique(df_main$Category))
 # Generate colors 
 bar_colors <- get_category_colors(num_categories)
 # Map colors to the categories 
-df$color <- bar_colors[match(df$Category, unique(df$Category))]
+df_main$color <- bar_colors[match(df_main$Category, unique(df_main$Category))]
 
 # colors based on owner
 #bar_colors <- c("LMS" = "pink", "WASCO" = "aquamarine", "DMA" = "green", "RWS" = "orange", "MAFSN" = "red", "WFP" = "skyblue", "LMS & IRI" =)
@@ -278,14 +282,16 @@ my_theme = create_theme(
 sidebar <- dashboardSidebar(
     sidebarMenu(
       menuItem("Dashboard", tabName = "dashboard", icon = icon("house")),
-      menuItem("Anticipatory Actions", icon = icon("th"), tabName = "actions", badgeLabel = "label", badgeColor = "teal"),
+      menuItem("Anticipatory Actions", icon = icon("th"), tabName = "actions"),
       menuItem("Forecasting Rainfall", icon = icon("droplet"), tabName = "rain"),
       menuItem("At-Risk Districts", icon = icon("globe"), tabName = "risk"),
-      menuItem("Additional Data", icon = icon("chart-simple"), tabName = "data", badgeLabel = "label", badgeColor = "teal"),
+      menuItem("Additional Data", icon = icon("chart-simple"), tabName = "data"),
       menuItem("Guide", icon = icon("list"), tabName = "guide")
     ),
     tags$style(HTML(".main-sidebar { margin-left: 0; }"))
   )
+
+# NOTE: add badgeLabel = "your_label_here" within each menuItem to add a custom label to the tab name and add badgeColor = "color" to change the color of the label  (ie. badgeLabel = "new", badgeColor = "teal")
 
 # build dashboard body and assign outputs to a section on the sidebar
 body <- dashboardBody(use_theme(my_theme),
@@ -335,28 +341,32 @@ body <- dashboardBody(use_theme(my_theme),
           )
       ),
 
-),
+)),
        fluidRow(column(width = 12,
-        box(title = "", width = NULL, height = 650, plotlyOutput("fig")), # add Gantt Chart to main dashbaord page
-         box(title = "Select Range", height = 200,
+        box(title = "", width = NULL, height = 650, plotlyOutput("gantt1")) #, # add Gantt Chart to main dashbaord page
+         #box(title = "Select Range", height = 200,
              # sliderInput(
              # inputId = "range",
              # label = "Range",
              # min = "2023-01-01",
              # max = "2024-12-31",
              # value = c(as.Date("2023-01-01"), as.Date("2024-12-31")))
- )),
+ #)
+ ),
 #         # column(width = 3,
 #         #   box(title = "Chart Viewing Options", width = NULL, height = 200,
 #         #   uiOutput("selected_category"),
 #         #   selectInput("categoryInput", "Select Category", choices = c("All", unique(df$category))) 
 #         #       #selected = 1
 #         #   ))
+        ),
+      fluidRow(column(width = 12,
+        box(title = tags$strong("Anticipatory Action Implementation Organizations", style = "font-size: 19px;"), width = NULL, height = 700, tableOutput("organization_table1"))) # add table to describe organizations
         )
-    )),
+    ),
     tabItem(tabName = "actions",
       fluidRow(column(width = 12,
-        box(title = "", width = NULL, height = 850, plotlyOutput("fig2"))), # Add anticipatory actions Gantt Chart
+        box(title = "", width = NULL, height = 850, plotlyOutput("gantt2"))), # Add anticipatory actions Gantt Chart
         ),
       fluidRow(column(width = 12,
         box(title = tags$strong("Action Descriptions", style = "font-size: 19px;"), width = NULL, height = 500,
@@ -386,12 +396,15 @@ body <- dashboardBody(use_theme(my_theme),
         tableOutput("action_info"))) # select output
     ),
     fluidRow(column(width = 12,
-        box(title = tags$strong("Anticipatory Action Implementation Organizations", style = "font-size: 19px;"), width = NULL, height = 700, tableOutput("organization_table"))) # add table to describe organizations
+        box(title = tags$strong("Anticipatory Action Implementation Organizations", style = "font-size: 19px;"), width = NULL, height = 700, tableOutput("organization_table2"))) # add table to describe organizations
         )
     ),
 tabItem(tabName = "rain",
         fluidRow(column(width = 12,
         box(title = tags$strong("Forecasted vs. Measured Rainfall", style = "font-size: 23px;"), width = NULL, height = 500, plotlyOutput("rain_plot")) # add forecasted rainfall chart
+      )),
+      fluidRow(column(width = 12,
+        box(title = tags$strong("Severity Levels", style = "font-size: 23px;"), width = NULL, height = 500, tableOutput("severity_table")) # add forecasted rainfall chart
       ))
       ),
 tabItem(tabName = "data",
@@ -408,7 +421,7 @@ tabItem(tabName = "data",
             actionButton("reset_riskmap_button", "Reset Map")), # add reset map view option
       )),
       fluidRow(column(width = 12,
-        box(title = tags$strong("Council & Geographic Information", style = "font-size: 21px;"), width = NULL, height = 450,
+        box(title = tags$strong("Council & Geographic Information", style = "font-size: 21px;"), width = 6, height = 450,
             selectInput("Risk_District_Selection", # create a dropdown menu for user to select input
               label = "Risk District", 
               choices = c("Mafeteng" = 1,
@@ -416,7 +429,8 @@ tabItem(tabName = "data",
                           "Quthing" = 3,
                           "Thaba-Tseka" = 4),
               selected = 1),
-            tableOutput("district_table")) # add table showing councils and geographic information of at-risk districts
+            tableOutput("district_table")), # add table showing councils and geographic information of at-risk districts
+        box(title = tags$strong("Geographic Zones", style = "font-size: 21px;"), width = 6, height = 500, imageOutput("lesotho_geozones"))
         ))
     ),
     tabItem(tabName = "guide",
@@ -424,7 +438,7 @@ tabItem(tabName = "data",
         #box(title = "FAQ", width = NULL, height = 500, uiOutput("faqText"))) # omitted FAQ
       #),
       fluidRow(column(width = 12, # add section for supporting materials
-        box(title = tags$strong("Supporting Materials", style = "font-size: 21px;"), width = NULL, height = 500)
+        box(title = tags$strong("Supporting Materials", style = "font-size: 21px;"), width = NULL, height = 500, uiOutput("supporting_materials"))
       ))
     )
 ))
@@ -531,10 +545,10 @@ trigger_show <- reactive({
   
 # Insert Gantt Chart code
 
-output$fig <- renderPlotly({ # set ouptut name to fig
+output$gantt1 <- renderPlotly({ # set ouptut name to gantt1
     p <- ggplot() +
       # Plot lines based on data from the dataframe df. It uses Task on the x-axis, date on the y-axis, colors by Category, and displays Owner information in the tooltip
-      geom_line(data=df, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=4, show.legend = FALSE) +
+      geom_line(data=df_main, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=4, show.legend = FALSE) +
       # Add a horizontal dashed line at the date "2023-01-01"
       geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
       coord_flip() + # Flips the x and y axes
@@ -579,7 +593,7 @@ output$fig <- renderPlotly({ # set ouptut name to fig
 
 #AA Gantt Chart
 # Same code as above, but usinf df_aa
-output$fig2 <- renderPlotly({ # set ouptut name to fig2
+output$gantt2 <- renderPlotly({ # set ouptut name to gantt2
     p <- ggplot() +
       geom_line(data=df_aa, mapping=aes(x=fct_rev(fct_inorder(Task)), y=date, color=Category, text = paste(Owner)), size=3, show.legend = FALSE) +
       geom_hline(yintercept=as.Date("2023-01-01"), color="black", linetype="dashed") +
@@ -587,7 +601,7 @@ output$fig2 <- renderPlotly({ # set ouptut name to fig2
       scale_y_date(date_breaks = "1 month", labels = scales::date_format("%b")) +
       scale_color_manual(values = bar_colors) +
       scale_x_discrete(labels = scales::date_format("%b")) +
-      labs(title="Lesotho Anticipatory Action Timeline", face = "bold",
+      labs(title="Lesotho Readiness Measures & Anticipatory Action Timeline", face = "bold",
            x = "",
            y = "Month",
            color = "Owner") +
@@ -696,13 +710,32 @@ filtered_data1 <- reactive({
 output$district_table <- renderTable({
     selected_data1 <- filtered_data1()# %>%
       #arrange(desc(row_number()))
-    selected_data1[, c("Council", "Geographic.Zone")] # Only show Council, & Geographic Zone
+    selected_data1[, c("Council", "Geographic Zone")] # Only show Council, & Geographic Zone
   })
 
-# render organization information table 
-output$organization_table <- renderTable({
+# render organization information table for main page
+output$organization_table1 <- renderTable({
         df_organizations
     })
+
+# render organization information table for anticipatory actions tab
+output$organization_table2 <- renderTable({
+        df_organizations
+    })
+
+# render severity level table for forecasted rainfall tab
+output$severity_table <- renderTable({
+        df_severity_levels
+    })
+
+# Add Lesotho geographic zones image from AAP Template
+output$lesotho_geozones <- renderImage({
+    
+    list(src = "lesotho_geozones.png",
+         width = 500#,
+         #height = 450)
+    )
+  }, deleteFile = F)
 
 # FAQ Output (currently omitted in dashboard)
 output$faqText <- renderUI({
@@ -712,6 +745,17 @@ output$faqText <- renderUI({
        <p> <b>What is the rainfall graph displaying?</b> .
        <p> <b>How do I...??</b> .
        ")
+})
+
+# Supporting Material Output 
+# code template: <p><b><a href="URL_TO_DOCUMENT1" target="_blank">Text Output</a></b></p>
+output$supporting_materials <- renderUI({
+  HTML('<p><b><a href="https://docs.google.com/document/d/1NP68PkQjlqbKQcoe-_qG35HdL5FY4K-MuQTIzWrFkmg/edit" target="_blank">Dashboard Handoff Document</a></b></p>
+  
+        <p><b><a href="https://docs.google.com/document/d/1aniT56-fqGLNI07uPqzYHrtW9FsrIQm4/edit" target="_blank">Lesotho Simplified AAP Template</a></b></p>
+        
+        <p><b><a href="https://iridl.ldeo.columbia.edu/fbfmaproom2/lesotho-ond?mode=0&map_column=pnep-v2&season=season1&predictors=pnep-v2+rain&predictand=bad-years-ag&year=2023&issue_month=sep&freq=15&severity=0&include_upcoming=false&position=%5B-29.606%2C28.25625%5D&show_modal=false" target="_blank">OND Season Map Tool</a></b></p>
+       ')
 })
 
 # build district population graph for Additional Information tab
@@ -788,11 +832,11 @@ output$population_chart_risk <- renderPlot({
 # Rainfall Graph
 output$rain_plot <- renderPlotly({
       # Initialize plot with rain_data as the data source
-    plot_ly(data = rain_data, type = 'scatter', mode = 'lines', x = ~Year, y = ~RainHistory, name = 'Rain History', color = '#fb9b06') %>%
+    plot_ly(data = rain_data, type = 'scatter', mode = 'lines', x = ~Year, y = ~RainHistory, name = 'Rain History (mm)', color = '#fb9b06') %>%
       # Add a trace for Rain Forecast as a bar plot, assigning it to the secondary y-axis
-      add_trace(type = 'bar', x = ~Month, y = ~RainForecast, name = 'Rain Forecast', yaxis = 'y2', marker = list(color = '#21918c')) %>%
+      add_trace(type = 'bar', x = ~Month, y = ~RainForecast, name = 'Rain Forecast (% Chance of Exceeding Threshold)', yaxis = 'y2', marker = list(color = '#21918c')) %>%
       # Configure the layout settings for the plot
-      layout(title = "Rain History and Forecast",
+      layout(title = "",
              yaxis2 = list(overlaying = "y", side = "right", title = "Bar Data"), # Configure the secondary y-axis
              xaxis = list(title = "Time", tickmode = "array", tickvals = unique(rain_data$Year), ticktext = unique(rain_data$Year)),
              yaxis = list(title = "Line Data"), # Set y-axis title for the main trace (Rain History)
