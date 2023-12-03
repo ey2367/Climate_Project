@@ -1,0 +1,12 @@
+name: LesothoShinyApp
+title: LesothoShinyApp
+username: ashnasingh7
+account: ashnasingh7
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 10322135
+bundleId: 8001840
+url: https://ashnasingh7.shinyapps.io/LesothoShinyApp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
