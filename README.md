@@ -16,7 +16,7 @@ The project is organized into four main folders, each serving a specific purpose
     - To use this chart, you'll need to download the 'all1.xlsx' and 'left.xlsx' files
 3. **Graphs:** This folder holds code and documentation for generating various graphs related to climate data.
     *<Graphs/Line Graph (Rain Forecast & History).R>*: the graph showing past and forecasted rainfall in Lesotho. 
-    -  To run the code, you need to download the 'lesotho_pop_short1.csv' file
+    -  To run the code, you need to download the 'lesotho_pop_short1.csv' file   
     *<Graphs/Population by district (Bar).R>*: the graph illustrating the population distribution across districts in Lesotho
 4. **Map:** Contains files related to the map visualization component of the project.
 
