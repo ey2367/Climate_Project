@@ -119,10 +119,10 @@ df_main <- as.data.frame(rbind(
     c("Seasonal Impact", "Season", '2024-01-01', '2024-03-31', 'Mid/Peak Season', "2"),
     c("Seasonal Impact", "Season", '2024-04-01', '2024-05-31', 'Harvest', "3"),
     
-    c("Seasonal Impact", "Impact 1", '2023-11-01', '2023-12-31', 'Food Insecurity', "4"),
-    c("Seasonal Impact", "Impact 2", '2023-12-01', '2023-12-31', 'Disease Outbreak', "5"),
-    c("Seasonal Impact", "Impact 3", '2023-12-01', '2023-12-31', 'Water Scarcity', "6"),
-    c("Seasonal Impact", "Impact 4", '2023-10-01', '2023-12-31', 'Loss of Livestock', "7"),
+    c("Seasonal Impact", "Food Insecurity", '2023-11-01', '2023-12-31', 'Impact 1', "4"),
+    c("Seasonal Impact", "Disease Outbreak", '2023-12-01', '2023-12-31', 'Impact 2k', "5"),
+    c("Seasonal Impact", "Water Scarcity", '2023-12-01', '2023-12-31', 'Impact 3', "6"),
+    c("Seasonal Impact", "Loss of Livestock", '2023-10-01', '2023-12-31', 'Impact 4', "7"),
     
     c("Forecast Triggers", "Readiness Trigger (OND)", '2023-07-01', '2023-09-30', 'LMS & IRI', "8"),
     #c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'LMS & IRI', "9"),
