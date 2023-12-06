@@ -125,9 +125,9 @@ df_main <- as.data.frame(rbind(
     c("Seasonal Impact", "Impact 4", '2023-10-01', '2023-12-31', 'Loss of Livestock', "7"),
     
     c("Forecast Triggers", "Readiness Trigger (OND)", '2023-07-01', '2023-09-30', 'LMS & IRI', "8"),
-    c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'LMS & IRI', "9"),
+    #c("Forecast Triggers", "Readiness Trigger (DJF)", '2023-09-01', '2023-12-31', 'LMS & IRI', "9"),
     c("Forecast Triggers", "Activation Trigger (OND)", '2023-08-01', '2023-09-30', 'LMS & IRI', "10"),
-    c("Forecast Triggers", "Activation Trigger (DJF)", '2023-10-01', '2023-11-30', 'LMS & IRI', "11"),
+    #c("Forecast Triggers", "Activation Trigger (DJF)", '2023-10-01', '2023-11-30', 'LMS & IRI', "11"),
     
     c("Anticipatory Actions", "Intervention 1", '2023-08-01', '2023-08-30', 'DMA, Min. of Health, SD, MAFSN, DRWS', "12"),
     c("Anticipatory Actions", "Intervention 1", '2023-09-01', '2024-01-31', 'DMA, Min. of Health, SD, MAFSN, DRWS', "13"),
@@ -283,7 +283,8 @@ sidebar <- dashboardSidebar(
     sidebarMenu(
       menuItem("Dashboard", tabName = "dashboard", icon = icon("house")),
       menuItem("Anticipatory Actions", icon = icon("th"), tabName = "actions"),
-      menuItem("Forecasting Rainfall", icon = icon("droplet"), tabName = "rain"),
+      menuItem("Trigger Mechanism", icon = icon("magnifying-glass-chart"), tabName = "trigger"),
+      menuItem("Forecasting Performance", icon = icon("droplet"), tabName = "rain"),
       menuItem("At-Risk Districts", icon = icon("globe"), tabName = "risk"),
       menuItem("Additional Data", icon = icon("chart-simple"), tabName = "data"),
       menuItem("Guide", icon = icon("list"), tabName = "guide")
@@ -359,9 +360,6 @@ body <- dashboardBody(use_theme(my_theme),
 #         #   selectInput("categoryInput", "Select Category", choices = c("All", unique(df$category))) 
 #         #       #selected = 1
 #         #   ))
-        ),
-      fluidRow(column(width = 12,
-        box(title = tags$strong("Anticipatory Action Implementation Organizations", style = "font-size: 19px;"), width = NULL, height = 700, tableOutput("organization_table1"))) # add table to describe organizations
         )
     ),
     tabItem(tabName = "actions",
@@ -369,7 +367,7 @@ body <- dashboardBody(use_theme(my_theme),
         box(title = "", width = NULL, height = 850, plotlyOutput("gantt2"))), # Add anticipatory actions Gantt Chart
         ),
       fluidRow(column(width = 12,
-        box(title = tags$strong("Action Descriptions", style = "font-size: 19px;"), width = NULL, height = 500,
+        box(title = tags$strong("Action Descriptions", style = "font-size: 19px;"), width = 6, height = 700,
         selectInput("Action_Selection", # create a dropdown menu for user to select action type
               label = "Action Type", 
               choices = c("General Readiness Actions" = 1,
@@ -378,23 +376,25 @@ body <- dashboardBody(use_theme(my_theme),
                           "Anticipatory Action 3" = 4,
                           "Anticipatory Action 4" = 5),
               selected = 1), # set default selection to General Readiness Actions
-        # selectInput("Owner_Selection", # create a dropdown menu for user to select input
-        #       label = "Action Type", 
-        #       choices = c("Select an Owner" = "",
-        #                   "DMA" = 2, 
-        #                   "WFP" = 3,
-        #                   "SD" = 4,
-        #                   "DRWS" = 5,
-        #                   "WASCO" = 6,
-        #                   "DA" = 7,
-        #                   "RWS" = 8,
-        #                   "Min. of Health" = 9,
-        #                   "MAFSN" = 10,
-        #                   "Dept. of Range" = 11),
-        #       selected = "",
-        #       multiple = TRUE),
-        tableOutput("action_info"))) # select output
-    ),
+        tableOutput("action_info")),# select output
+         box(title = tags$strong("Owners", style = "font-size: 19px;"), width = 6, height = 700,
+        selectInput("Owner_Selection", # create a dropdown menu for user to select input
+              label = "Action Type", 
+              choices = c(#"Select an Owner" = "", # for multiple select + start number from 2
+                          "DMA" = 1, 
+                          "WFP" = 2,
+                          "SD" = 3,
+                          "DRWS" = 4,
+                          "WASCO" = 5,
+                          "DA" = 6,
+                          "RWS" = 7,
+                          "Min. of Health" = 8,
+                          "MAFSN" = 9,
+                          "Dept. of Range" = 10),
+              selected = "1",
+              multiple = FALSE), # change to TRUE for multiple selection
+        tableOutput("owner_info"))
+        )),
     fluidRow(column(width = 12,
         box(title = tags$strong("Anticipatory Action Implementation Organizations", style = "font-size: 19px;"), width = NULL, height = 700, tableOutput("organization_table2"))) # add table to describe organizations
         )
@@ -439,6 +439,11 @@ tabItem(tabName = "data",
       #),
       fluidRow(column(width = 12, # add section for supporting materials
         box(title = tags$strong("Supporting Materials", style = "font-size: 21px;"), width = NULL, height = 500, uiOutput("supporting_materials"))
+      ))
+    ),
+    tabItem(tabName = "trigger",
+      fluidRow(column(width = 12, # add section for supporting materials
+        box(title = tags$strong("Drought Trigger Mechanism", style = "font-size: 21px;"), width = NULL, height = 500, uiOutput(""))
       ))
     )
 ))
@@ -651,30 +656,6 @@ filtered_data <- reactive({
       df_aa_rev <- df_aa_rev
     }
 
-    # if (owner_select == 2) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "DMA", ]
-    # } else if (owner_select == 3) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "WFP", ]
-    # } else if (owner_select == 4) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "SD", ]
-    # } else if (owner_select == 5) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "DRWS", ]
-    # } else if (owner_select == 6) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "WASCO", ]
-    # } else if (owner_select == 7) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "DA", ]
-    # } else if (owner_select == 8) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "RWS", ]
-    # } else if (owner_select == 9) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "Min. of Health", ]
-    # } else if (owner_select == 10) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "MAFSN", ]
-    # } else if (owner_select == 11) {
-    #   df_aa_rev <- df_aa_rev[df_aa_rev$owner == "Dept. of Range", ]
-    # } else {
-    #   df_aa_rev <- df_aa_rev
-    # }
-    
     return(df_aa_rev)
   })
 
@@ -683,6 +664,85 @@ output$action_info <- renderTable({
     selected_data <- filtered_data() %>%
       arrange(desc(row_number()))
     selected_data[, c("Task", "Owner", "Description")] # Only show Task, Owner, & Description
+  })
+
+
+filtered_data2 <- reactive({
+    owner_select <- input$Owner_Selection
+
+    if (owner_select == 1) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "DMA", ]
+    } else if (owner_select == 2) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "WFP", ]
+    } else if (owner_select == 3) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "SD", ]
+    } else if (owner_select == 4) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "DRWS", ]
+    } else if (owner_select == 5) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "WASCO", ]
+    } else if (owner_select == 6) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "DA", ]
+    } else if (owner_select == 7) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "RWS", ]
+    } else if (owner_select == 8) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "Min. of Health", ]
+    } else if (owner_select == 9) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "MAFSN", ]
+    } else if (owner_select == 10) {
+      df_aa_rev <- df_aa_rev[df_aa_rev$Owner == "Dept. of Range", ]
+    } else {
+      df_aa_rev <- df_aa_rev
+    }
+    
+# FOR MULTIPLE OWNER SELECTION
+        #     selected_owners <- c()
+        # 
+        # if (2 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "DMA")
+        # }
+        # if (3 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "WFP")
+        # }
+        # if (4 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "SD")
+        # }
+        # if (5 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "DRWS")
+        # }
+        # if (6 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "WASCO")
+        # }
+        # if (7 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "DA")
+        # }
+        # if (8 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "RWS")
+        # }
+        # if (9 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "Min. of Health")
+        # }
+        # if (10 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "MAFSN")
+        # }
+        # if (11 %in% owner_select) {
+        #   selected_owners <- c(selected_owners, "Dept. of Range")
+        # }
+        # 
+        # if (length(selected_owners) > 0) {
+        #   df_aa_rev <- df_aa_rev[df_aa_rev$Owner %in% selected_owners, ]
+        # } else {
+        #   # If no owner is selected, keep the original dataframe
+        #   df_aa_rev <- df_aa_rev
+        # }
+    
+    return(df_aa_rev)
+  })
+
+# render organization/owner table based on reactive input
+output$owner_info <- renderTable({
+    selected_data2 <- filtered_data2() %>%
+      arrange(desc(row_number()))
+    selected_data2[, c("Owner", "Task", "Description")] # Only show Task, Owner, & Description
   })
 
 
