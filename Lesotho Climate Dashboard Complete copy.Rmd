@@ -1,6 +1,6 @@
 ---
 title: "Lesotho Climate Dashboard"
-author: "Ashna"
+author: "Ashna Singh"
 date: "2023-10-12"
 output: html_document
 ---
